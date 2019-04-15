@@ -26,7 +26,10 @@ sns.set()
 def dbscan_verbose(db, X, plot=False,n=None,silent=False):
     plt.close()
     core = np.zeros_like(db.labels_, dtype=bool)
-    core[db.core_sample_indices_] = True
+    try:
+        core[db.core_sample_indices_] = True
+    except:
+        core[:] = True
     labels = db.labels_
 
     if n is None:
@@ -63,12 +66,34 @@ def random_search_custom(dbscan,param_dist,X,n=1,cv=5):
     results = []
     for i in trange(len(params)):
         dbscan.set_params(**params[i])
-        params[i]['score'],params[i]['stdev'] = custom_silhouette(dbscan,X,cv=cv)
+        if cv == 1:
+            params[i]['score'] = custom_silhouette(dbscan,X,cv=cv)
+            roll = 1
+        else:
+            params[i]['score'],params[i]['stdev'] = custom_silhouette(dbscan,X,cv=cv)
+            roll = 2
         results.append(params[i])
         
     results = pd.DataFrame(results)
     results.sort_values(by=['score'],ascending=False,inplace=True)
-    results = results[['score','stdev','eps','min_samples']]
+    results = results[np.roll(results.columns.values,roll)]
+    
+    return results
+
+def random_search_custom2(hdb,param_dist,X,n=1):
+    allparams = list(ParameterSampler(param_dist,n))
+    unique = list(set(frozenset(x.items()) for x in allparams))
+    params = [dict(x) for x in unique]
+    results = []
+    for i in trange(len(params)):
+        hdb.set_params(**params[i])
+        hdb.fit(X)
+        params[i]['score'] = hdb.relative_validity_
+        results.append(params[i])
+        
+    results = pd.DataFrame(results)
+    results.sort_values(by=['score'],ascending=False,inplace=True)
+    results = results[np.roll(results.columns.values,1)]
     
     return results
 
