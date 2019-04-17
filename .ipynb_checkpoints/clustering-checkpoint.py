@@ -5,6 +5,7 @@
 
 
 import sklearn
+import hdbscan
 from sklearn import metrics
 import pandas as pd
 import numpy as np
@@ -23,14 +24,20 @@ sns.set()
 ###############################################################################
 
 
-def dbscan_verbose(db, X, plot=False,n=None,silent=False):
+def dbscan_verbose(db, X, plot=False,n=None,p=None,silent=False):
     plt.close()
-    core = np.zeros_like(db.labels_, dtype=bool)
+    labels = np.copy(db.labels_)
+    core = np.zeros_like(labels, dtype=bool)
     try:
         core[db.core_sample_indices_] = True
     except:
         core[:] = True
-    labels = db.labels_
+        
+    if p is not None:
+        lower_lim = (db.probabilities_ <= p)
+        for i in list(set(labels))[:-1]:
+            clust = (labels == i)
+            labels[clust & lower_lim] = -1
 
     if n is None:
         n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
@@ -88,7 +95,7 @@ def random_search_custom2(hdb,param_dist,X,n=1):
     for i in trange(len(params)):
         hdb.set_params(**params[i])
         hdb.fit(X)
-        params[i]['score'] = hdb.relative_validity_
+        params[i]['score'] = hdbscan.validity.validity_index(X,hdb.labels_)
         results.append(params[i])
         
     results = pd.DataFrame(results)
