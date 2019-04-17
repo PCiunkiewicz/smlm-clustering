@@ -87,15 +87,17 @@ def random_search_custom(dbscan,param_dist,X,n=1,cv=5):
     
     return results
 
-def random_search_custom2(hdb,param_dist,X,n=1):
+def random_search_custom_hdb(param_dist,X,n=1):
     allparams = list(ParameterSampler(param_dist,n))
     unique = list(set(frozenset(x.items()) for x in allparams))
     params = [dict(x) for x in unique]
     results = []
     for i in trange(len(params)):
+        hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,gen_min_span_tree=True)
         hdb.set_params(**params[i])
         hdb.fit(X)
-        params[i]['score'] = hdbscan.validity.validity_index(X,hdb.labels_)
+        params[i]['score'] = hdb.relative_validity_
+#         params[i]['score'] = hdbscan.validity.validity_index(X,hdb.labels_)
         results.append(params[i])
         
     results = pd.DataFrame(results)
@@ -117,7 +119,7 @@ def plot_clusters(X,labels,core,n=None,silent=False):
         
     plotlabel = None
     unique_labels = set(labels)
-    colors = [plt.cm.Spectral(each)
+    colors = [plt.cm.tab20(each)
               for each in np.linspace(0, 1, len(unique_labels))]
 
     for k, col in zip(unique_labels, colors):
