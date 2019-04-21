@@ -96,7 +96,7 @@ def random_search_custom_hdb(param_dist,X,n=1):
         hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,gen_min_span_tree=True)
         hdb.set_params(**params[i])
         hdb.fit(X)
-        params[i]['score'] = hdb.relative_validity_
+        params[i]['score'] = np.round(hdb.relative_validity_, 3)
 #         params[i]['score'] = hdbscan.validity.validity_index(X,hdb.labels_)
         results.append(params[i])
         
@@ -150,3 +150,19 @@ def plot_clusters(X,labels,core,n=None,silent=False):
     if n is not None:
         plt.legend()
 #     plt.show()
+
+def view_cluster(hdb,XY,n,p=0.0):
+    if not hasattr(n,'__iter__'):
+        n = [n]
+    for i in n:
+        clust = hdb.labels_ == i
+        prob = hdb.probabilities_[clust]
+
+        fig,axes = plt.subplots(1,2,figsize=[14,4])
+
+        _ = sns.distplot(prob, norm_hist=True, ax=axes[0])
+        _ = axes[0].set(xlim=(0,1), xlabel='Probability', ylabel='Frequency')
+
+        _ = sns.scatterplot(*XY[clust][prob<=p].T,alpha=0.5,color='r',ax=axes[1],label=f'$p\\leq{p}$')
+        _ = sns.scatterplot(*XY[clust][prob>p].T,alpha=0.5,color='b',ax=axes[1],label=f'$p>{p}$')
+        _ = axes[1].set(xlabel='X [nm]', ylabel='Y [nm]')
