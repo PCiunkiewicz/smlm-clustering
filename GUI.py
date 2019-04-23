@@ -1,5 +1,5 @@
-"""Spectrometer GUI for PHYS581 assignment 6: Data Collection.
-Philip Ciunkiewicz (10161276)
+"""HDBSCAN Clustering Tool
+Author - Philip Ciunkiewicz
 """
 
 ###############################################################################
@@ -12,6 +12,7 @@ matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk)
 from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
 import matplotlib.animation as animation
 
 import os
@@ -35,11 +36,11 @@ from ttkwidgets import *
 
 # Setting the color theme to Seaborn defaults
 sns.set()
-p = sns.color_palette()
 
 # Creating a global figure and axes object for plotting
-f = Figure(figsize=(10,4), dpi=100)
-axes = [f.add_subplot(121), f.add_subplot(122)]
+f = Figure(figsize=(10,10), dpi=80)
+axes = [f.add_subplot(221), f.add_subplot(222), f.add_subplot(212)]
+f.subplots_adjust(wspace=0.25, top=0.95, right=0.95, bottom=0.08)
 
 
 ###############################################################################
@@ -68,13 +69,14 @@ class mainGUI(Frame):
 
     def init_data(self):
         self.df = pd.read_csv('Diskovery_Cell1_ThunderSTORM.csv')
-        self.XY = self.df[['x [nm]', 'y [nm]']].sample(frac=0.2, 
-                                                       random_state=1234).values
+        self.XY = self.df[['x [nm]', 'y [nm]']].sample(200000, 
+                                                       random_state=1).values
         self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
                                    gen_min_span_tree=True,
                                    min_cluster_size=1090,
                                    min_samples=629)
         self.hdb.fit(self.XY)
+        plot_clusters_lite(self.XY, self.hdb.labels_, ax=axes[2])
         
     def perform_clustering(self):
         self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
@@ -82,8 +84,11 @@ class mainGUI(Frame):
                                    min_cluster_size=self.min_cluster_size.value,
                                    min_samples=self.min_samples.value)
         self.hdb.fit(self.XY)
-        self.cluster.configure({'to': len(set(self.hdb.labels_)) - 3})
+        self.cluster.configure({'to': len(set(self.hdb.labels_)) - 2})
+        axes[2].clear()
         self.animate(None, force_update=True)
+        plot_clusters_lite(self.XY, self.hdb.labels_, ax=axes[2])
+        self.cluster_info.config(text=full_cluster_info(self.hdb))
 
     def animate(self, i, force_update=False):
         """Main animation function for real-time plotting.
@@ -91,9 +96,10 @@ class mainGUI(Frame):
         if self.changed_params() or force_update:
             axes[0].clear()
             axes[1].clear()
-            x = np.arange(100)
             view_cluster(self.hdb, self.XY, self.cluster.value,
                          p=self.probability.value/100, axes=axes)
+            self.draw_region()
+            self.draw_probability_marker()
 
     def changed_params(self):
         flag = False
@@ -103,6 +109,26 @@ class mainGUI(Frame):
                 flag=True
         
         return flag
+    
+    def draw_region(self):
+        ymin, ymax = axes[1].get_ylim()
+        xmin, xmax = axes[1].get_xlim()
+        xspan = xmax - xmin
+        yspan = ymax - ymin
+        
+        try:
+            self.region.remove()
+        except:
+            pass
+        
+        self.region = Rectangle((xmin, ymin), xspan, yspan, 
+                                linewidth=1.0, edgecolor=[1,0,0,1], 
+                                facecolor='none', zorder=3)
+        axes[2].add_patch(self.region)
+        
+    def draw_probability_marker(self):
+        marker = axes[0].plot(self.probability.value/100, 0, 'r^', zorder=20)[0]
+        marker.set_clip_on(False)
 
 
 ###############################################################################
@@ -125,7 +151,7 @@ class mainGUI(Frame):
         """Initializes the controls section of the GUI.
         """
         self.rightframe = Frame(root)
-        self.rightframe.pack(side=BOTTOM,fill=BOTH, expand=True)
+        self.rightframe.pack(side=RIGHT,fill=BOTH, expand=True)
 
         header = Frame(self.rightframe)
         header.pack(side=TOP,fill=X)
@@ -133,49 +159,55 @@ class mainGUI(Frame):
               font=("Courier",16)).pack(side=LEFT,anchor=W)
 
         Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
-        options = Frame(self.rightframe)
         
+        options = Frame(self.rightframe)
         cluster_n = Frame(options)
-        Label(cluster_n, text="Cluster Index").pack( side = LEFT)
+        Label(cluster_n, text="Cluster Index").pack(side=TOP, anchor=W)
         self.cluster = ScaleEntry(cluster_n, from_=0,
-                                  to=len(set(self.hdb.labels_)) - 3,
+                                  to=len(set(self.hdb.labels_)) - 2,
                                   scalewidth=200,compound=LEFT)
-        self.cluster.pack(side=RIGHT,padx=(50,0))
+        self.cluster.pack(side=BOTTOM)
         cluster_n.pack(anchor=W, side=TOP,fill=X)
         
         prob = Frame(options)
-        Label(prob, text="Probability Threshold (%)").pack( side = LEFT)
-        self.probability = ScaleEntry(prob, from_=0, to=100, 
+        Label(prob, text="Probability Threshold (%)").pack(side=TOP, anchor=W)
+        self.probability = ScaleEntry(prob, from_=0, to=99, 
                                  scalewidth=200,compound=LEFT)
-        self.probability.pack(side=RIGHT,padx=(50,0))
+        self.probability.pack(side=BOTTOM)
         prob.pack(anchor=W, side=TOP,fill=X)
         options.pack(anchor=W, side=TOP,fill=X)
 
         Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
 
-        controls = Frame(self.rightframe)
-        self.run_hdbscan = Button(controls, text="HDBSCAN", 
-                                command=self.perform_clustering)
-        self.run_hdbscan.pack(anchor=SE,side=RIGHT,padx=(200,0))
-        controls.pack(side=BOTTOM,fill=X)
-        
         minclustersize = Frame(self.rightframe)
-        Label(minclustersize, text="Minimum Cluster Size").pack( side = LEFT)
+        Label(minclustersize, text="Minimum Cluster Size").pack(side=TOP, anchor=W)
         self.min_cluster_size = ScaleEntry(minclustersize, from_=0, to=1100, 
                                  scalewidth=200,compound=LEFT)
-        self.min_cluster_size.pack(side=RIGHT)
+        self.min_cluster_size.pack(side=BOTTOM)
         self.min_cluster_size._variable.set(1090)
         self.min_cluster_size._on_scale(None)
         minclustersize.pack(anchor=W, side=TOP,fill=X)
         
         minsamples = Frame(self.rightframe)
-        Label(minsamples, text="Minimum Samples").pack( side = LEFT)
+        Label(minsamples, text="Minimum Samples").pack(side=TOP, anchor=W)
         self.min_samples = ScaleEntry(minsamples, from_=0, to=1000, 
-                                 scalewidth=200,compound=LEFT)
-        self.min_samples.pack(side=RIGHT)
+                                 scalewidth=200, compound=LEFT)
+        self.min_samples.pack(side=BOTTOM)
         self.min_samples._variable.set(629)
         self.min_samples._on_scale(None)
-        minsamples.pack(anchor=W, side=TOP,fill=X)
+        minsamples.pack(anchor=W, side=TOP, fill=X)
+        
+        controls = Frame(self.rightframe)
+        self.run_hdbscan = Button(controls, text="Run HDBSCAN", 
+                                command=self.perform_clustering)
+        self.run_hdbscan.pack()
+        controls.pack()
+        
+        Separator(self.rightframe, orient=HORIZONTAL).pack(fill=X,pady=5)
+        
+        self.cluster_info = Label(self.rightframe, text=full_cluster_info(self.hdb))
+        self.cluster_info.pack(fill=X)
+        
         
         self.current_values = {
         'cluster' : self.cluster,
@@ -220,11 +252,6 @@ def clearterminal():
     if sys.platform.lower() == 'win32':
         os.system('cls')
 
-def quit():
-    """Safely exit from TKinter and kill all
-    Python processes and widgets.
-    """
-    sys.exit()
 
 # Main function and class calls
 if __name__ == "__main__":
@@ -234,7 +261,7 @@ if __name__ == "__main__":
 
     clearterminal()
     root = ThemedTk(theme=theme)
-    root.wm_title("PHYS-581 Spectrogram")
+    root.wm_title("HDBSCAN Clustering Utility v0.1")
     root.resizable(0,0)
 
     app = mainGUI(root).pack(side="top", fill="both", expand=True)
