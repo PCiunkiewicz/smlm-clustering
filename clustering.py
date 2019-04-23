@@ -48,7 +48,7 @@ def random_search_custom_hdb(param_dist,X,n=1):
 ###############################################################################
 
 
-def plot_clusters_lite(X, labels, ax):
+def plot_clusters_lite(X, labels, ax, downscale=100):
     unique_labels = set(labels)
     colors = [plt.cm.tab20(each)
               for each in np.linspace(0, 1, len(unique_labels))]
@@ -61,14 +61,18 @@ def plot_clusters_lite(X, labels, ax):
             alpha, ms, zorder = 1, 2, 1
 
         xy = X[cluster]
-        ax.plot(*resample_2d(xy), 'o', markerfacecolor=tuple(col),
-                 markeredgewidth=0.0, markersize=ms, alpha=alpha, zorder=zorder)
+        if downscale > 1:
+            ax.plot(*resample_2d(xy, downscale), 'o', markerfacecolor=tuple(col),
+                    markeredgewidth=0.0, markersize=ms, alpha=alpha, zorder=zorder)
+        else:
+            ax.plot(*xy.T, 'o', markerfacecolor=tuple(col),markeredgewidth=0.0, 
+                    markersize=ms, alpha=alpha, zorder=zorder)
         
     ax.set(xlabel='X [nm]', ylabel='Y [nm]')
         
-def resample_2d(X):
+def resample_2d(X, downscale=100):
     x, y = X[:,0], X[:,1]
-    nbins = max(X.shape[0] // 100, 1)
+    nbins = max(X.shape[0] // downscale, 1)
     
     hh, locx, locy = np.histogram2d(x, y, bins=nbins)
     xwidth, ywidth = np.diff(locx).mean(), np.diff(locy).mean()
@@ -76,7 +80,7 @@ def resample_2d(X):
     
     locx = locx[:-1] + xwidth
     locy = locy[:-1] + ywidth
-    yy, xx = np.meshgrid(locy, locx) + np.random.randint(-np.mean([xwidth, ywidth])/2,
+    yy, xx = np.meshgrid(locy, locx) + np.random.uniform(-np.mean([xwidth, ywidth])/2,
                                                          np.mean([xwidth, ywidth])/2,
                                                          size=hh.shape)
     
