@@ -25,7 +25,7 @@ from clustering import *
 import tkinter as tk
 from tkinter import *
 from tkinter.ttk import *
-from tkinter import filedialog,messagebox,simpledialog
+from tkinter import filedialog, messagebox, simpledialog
 from ttkthemes import ThemedTk
 from ttkwidgets import *
 
@@ -68,15 +68,32 @@ class mainGUI(Frame):
 
 
     def init_data(self):
-        self.df = pd.read_csv('Diskovery_Cell1_ThunderSTORM.csv')
-        self.XY = self.df[['x [nm]', 'y [nm]']].sample(200000, 
-                                                       random_state=1).values
-        self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
-                                   gen_min_span_tree=True,
-                                   min_cluster_size=1090,
-                                   min_samples=629)
-        self.hdb.fit(self.XY)
-        plot_clusters_lite(self.XY, self.hdb.labels_, ax=axes[2])
+        path = filedialog.askopenfilename(title='Select Data',
+                                          initialdir=os.getcwd(), 
+                                          filetypes=[("ThunderSTORM", "*.csv")])
+        if path:
+            self.df = pd.read_csv(path)
+            self.XY = self.df[['x [nm]', 'y [nm]']]
+
+            self.trim_sample()
+
+            self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
+                                       gen_min_span_tree=True,
+                                       min_cluster_size=1090,
+                                       min_samples=629)
+            self.hdb.fit(self.XY)
+            plot_clusters_lite(self.XY, self.hdb.labels_, ax=axes[2])
+
+    def trim_sample(self, n=200000):
+        if self.XY.shape[0] > n:
+                self.XY = self.XY.sample(n, random_state=1).values
+        else:
+            self.XY = self.XY.values
+
+    def resize_data(self, xlim, ylim):
+        mask = df['x [nm]'].between(*xlim) & df['y [nm]'].between(*ylim)
+        self.XY = self.df[['x [nm]', 'y [nm]']][mask]
+        self.trim_sample()
         
     def perform_clustering(self):
         self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
@@ -181,7 +198,7 @@ class mainGUI(Frame):
 
         minclustersize = Frame(self.rightframe)
         Label(minclustersize, text="Minimum Cluster Size").pack(side=TOP, anchor=W)
-        self.min_cluster_size = ScaleEntry(minclustersize, from_=0, to=1100, 
+        self.min_cluster_size = ScaleEntry(minclustersize, from_=1, to=5000, 
                                  scalewidth=200,compound=LEFT)
         self.min_cluster_size.pack(side=BOTTOM)
         self.min_cluster_size._variable.set(1090)
@@ -190,7 +207,7 @@ class mainGUI(Frame):
         
         minsamples = Frame(self.rightframe)
         Label(minsamples, text="Minimum Samples").pack(side=TOP, anchor=W)
-        self.min_samples = ScaleEntry(minsamples, from_=0, to=1000, 
+        self.min_samples = ScaleEntry(minsamples, from_=1, to=1000, 
                                  scalewidth=200, compound=LEFT)
         self.min_samples.pack(side=BOTTOM)
         self.min_samples._variable.set(629)
