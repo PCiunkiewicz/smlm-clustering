@@ -20,6 +20,8 @@ import sys
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from scipy.stats import randint
+from tabulate import tabulate
 from clustering import *
 
 import tkinter as tk
@@ -28,6 +30,9 @@ from tkinter.ttk import *
 from tkinter import filedialog, messagebox, simpledialog
 from ttkthemes import ThemedTk
 from ttkwidgets import *
+
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
 
 ###############################################################################
@@ -55,7 +60,7 @@ class mainGUI(Frame):
         Frame.__init__(self, parent)
         self.parent = parent
 
-        self.init_data()
+        # self.init_data()
         self.init_controls_UI()
         self.init_plot_UI()
 
@@ -67,7 +72,7 @@ class mainGUI(Frame):
 ###############################################################################
 
 
-    def init_data(self):
+    def load_data(self):
         path = filedialog.askopenfilename(title='Select Data',
                                           initialdir=os.getcwd(), 
                                           filetypes=[("ThunderSTORM", "*.csv")])
@@ -77,12 +82,13 @@ class mainGUI(Frame):
 
             self.trim_sample()
 
-            self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
-                                       gen_min_span_tree=True,
-                                       min_cluster_size=1090,
-                                       min_samples=629)
-            self.hdb.fit(self.XY)
-            plot_clusters_lite(self.XY, self.hdb.labels_, ax=axes[2])
+            for ax in axes:
+                ax.clear()
+
+            self.min_cluster_size.configure({'to': min([self.XY.shape[0]//10, 5000])})
+            self.min_samples.configure({'to': min([self.XY.shape[0]//10, 1000])})
+            plot_clusters_lite(self.XY, np.zeros(self.XY.shape[0]), ax=axes[2])
+            self.cluster_info.config(text='')
 
     def trim_sample(self, n=200000):
         if self.XY.shape[0] > n:
@@ -96,12 +102,17 @@ class mainGUI(Frame):
         self.trim_sample()
         
     def perform_clustering(self):
+        try:
+            _ = self.XY
+        except:
+            messagebox.showinfo('Run HDBSCAN','Please load data first.')
+            return
         self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
                                    gen_min_span_tree=True,
                                    min_cluster_size=self.min_cluster_size.value,
                                    min_samples=self.min_samples.value)
         self.hdb.fit(self.XY)
-        self.cluster.configure({'to': len(set(self.hdb.labels_)) - 2})
+        self.cluster.configure({'to': len(set(self.hdb.labels_[self.hdb.labels_ != -1])) - 1})
         axes[2].clear()
         self.animate(None, force_update=True)
         plot_clusters_lite(self.XY, self.hdb.labels_, ax=axes[2])
@@ -111,12 +122,15 @@ class mainGUI(Frame):
         """Main animation function for real-time plotting.
         """
         if self.changed_params() or force_update:
-            axes[0].clear()
-            axes[1].clear()
-            view_cluster(self.hdb, self.XY, self.cluster.value,
-                         p=self.probability.value/100, axes=axes)
-            self.draw_region()
-            self.draw_probability_marker()
+            try:
+                axes[0].clear()
+                axes[1].clear()
+                view_cluster(self.hdb, self.XY, self.cluster.value,
+                             p=self.probability.value/100, axes=axes)
+                self.draw_region()
+                self.draw_probability_marker()
+            except:
+                pass
 
     def changed_params(self):
         flag = False
@@ -147,6 +161,26 @@ class mainGUI(Frame):
         marker = axes[0].plot(self.probability.value/100, 0, 'r^', zorder=20)[0]
         marker.set_clip_on(False)
 
+    def optimize_params(self):
+        try:
+            _ = self.XY
+        except:
+            messagebox.showinfo('Run HDBSCAN','Please load data first.')
+            return
+
+        n = simpledialog.askinteger('Parameter Search', 'Enter number of searches:')
+        if n:
+            param_dist = {"min_cluster_size": randint(self.clustermin.get(), self.clustermax.get()),
+                          "min_samples": randint(self.samplemin.get(), self.samplemax.get())}
+
+            self.results = random_search_custom_hdb(param_dist, self.XY, n=n)
+            table = tabulate(self.results.head(10), headers='keys', showindex=False)
+            self.param_info.config(text=table)
+
+            axes[0].clear()
+            self.results.plot.scatter('min_cluster_size', 'min_samples',  c='score', 
+                                      cmap='RdYlGn', ax=axes[0], colorbar=False)
+
 
 ###############################################################################
 ################################# UI Elements #################################
@@ -167,21 +201,41 @@ class mainGUI(Frame):
     def init_controls_UI(self):
         """Initializes the controls section of the GUI.
         """
+        self.clustermin = IntVar()
+        self.clustermin.set(2)
+        self.clustermax = IntVar()
+        self.clustermax.set(100)
+        self.samplemin = IntVar()
+        self.samplemin.set(1)
+        self.samplemax = IntVar()
+        self.samplemax.set(50)
+
         self.rightframe = Frame(root)
         self.rightframe.pack(side=RIGHT,fill=BOTH, expand=True)
 
         header = Frame(self.rightframe)
         header.pack(side=TOP,fill=X)
-        Label(header,text="Options",anchor='n',
+        Label(header,text="Clustering Tools",anchor='n',
               font=("Courier",16)).pack(side=LEFT,anchor=W)
+
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=(5,1))
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=(1,5))
+
+        controls = Frame(self.rightframe)
+        self.run_hdbscan = Button(controls, text="Run HDBSCAN", 
+                                command=self.perform_clustering)
+        self.run_hdbscan.pack(side=RIGHT)
+        self.load = Button(controls, text="Load Data", 
+                                command=self.load_data)
+        self.load.pack(side=LEFT)
+        controls.pack()
 
         Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
         
         options = Frame(self.rightframe)
         cluster_n = Frame(options)
         Label(cluster_n, text="Cluster Index").pack(side=TOP, anchor=W)
-        self.cluster = ScaleEntry(cluster_n, from_=0,
-                                  to=len(set(self.hdb.labels_)) - 2,
+        self.cluster = ScaleEntry(cluster_n, from_=0, to=1,
                                   scalewidth=200,compound=LEFT)
         self.cluster.pack(side=BOTTOM)
         cluster_n.pack(anchor=W, side=TOP,fill=X)
@@ -198,32 +252,59 @@ class mainGUI(Frame):
 
         minclustersize = Frame(self.rightframe)
         Label(minclustersize, text="Minimum Cluster Size").pack(side=TOP, anchor=W)
-        self.min_cluster_size = ScaleEntry(minclustersize, from_=1, to=5000, 
+        self.min_cluster_size = ScaleEntry(minclustersize, from_=2, to=100, 
                                  scalewidth=200,compound=LEFT)
         self.min_cluster_size.pack(side=BOTTOM)
-        self.min_cluster_size._variable.set(1090)
+        self.min_cluster_size._variable.set(50)
         self.min_cluster_size._on_scale(None)
         minclustersize.pack(anchor=W, side=TOP,fill=X)
         
         minsamples = Frame(self.rightframe)
         Label(minsamples, text="Minimum Samples").pack(side=TOP, anchor=W)
-        self.min_samples = ScaleEntry(minsamples, from_=1, to=1000, 
+        self.min_samples = ScaleEntry(minsamples, from_=1, to=100, 
                                  scalewidth=200, compound=LEFT)
         self.min_samples.pack(side=BOTTOM)
-        self.min_samples._variable.set(629)
+        self.min_samples._variable.set(5)
         self.min_samples._on_scale(None)
         minsamples.pack(anchor=W, side=TOP, fill=X)
         
-        controls = Frame(self.rightframe)
-        self.run_hdbscan = Button(controls, text="Run HDBSCAN", 
-                                command=self.perform_clustering)
-        self.run_hdbscan.pack()
-        controls.pack()
-        
         Separator(self.rightframe, orient=HORIZONTAL).pack(fill=X,pady=5)
         
-        self.cluster_info = Label(self.rightframe, text=full_cluster_info(self.hdb))
+        self.cluster_info = Label(self.rightframe, text='')
         self.cluster_info.pack(fill=X)
+
+        header = Frame(self.rightframe)
+        header.pack(side=TOP,fill=X)
+        Label(header,text="Parameter Search",anchor='n',
+              font=("Courier",16)).pack(side=LEFT, anchor=W, pady=(25,0))
+
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X, pady=(5,1))
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X, pady=(1,5))
+
+        cluster_lims = Frame(self.rightframe)
+        Label(cluster_lims, text="Minimum Cluster range:  ").pack(side=LEFT)
+        Entry(cluster_lims, width=4, textvariable=self.clustermax).pack(side=RIGHT, padx=(0,5))
+        Label(cluster_lims, text=" - ").pack(side=RIGHT)
+        Entry(cluster_lims, width=4, textvariable=self.clustermin).pack(side=RIGHT)
+        cluster_lims.pack(anchor=W, fill=X)
+
+        sample_lims = Frame(self.rightframe)
+        Label(sample_lims, text="Minimum Samples range:  ").pack(side=LEFT)
+        Entry(sample_lims, width=4, textvariable=self.samplemax).pack(side=RIGHT, padx=(0,5))
+        Label(sample_lims, text=" - ").pack(side=RIGHT)
+        Entry(sample_lims, width=4, textvariable=self.samplemin).pack(side=RIGHT)
+        sample_lims.pack(anchor=W, fill=X)
+
+        controls = Frame(self.rightframe)
+        self.param_search = Button(controls, text="Optimize Parameters", 
+                                   command=self.optimize_params)
+        self.param_search.pack(side=RIGHT)
+        controls.pack()
+
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
+
+        self.param_info = Label(self.rightframe, text='')
+        self.param_info.pack(fill=X)
         
         
         self.current_values = {

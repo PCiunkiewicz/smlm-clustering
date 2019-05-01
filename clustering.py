@@ -14,6 +14,7 @@ from tqdm import trange
 from time import time
 import matplotlib.pyplot as plt
 from sklearn.model_selection import ParameterSampler
+from sklearn import datasets
 import seaborn as sns
 sns.set()
 
@@ -23,8 +24,16 @@ sns.set()
 ###############################################################################
 
 
-def random_search_custom_hdb(param_dist,X,n=1):
-    allparams = list(ParameterSampler(param_dist,n))
+def custom_round(x, base=5):
+    return int(base * np.ceil(float(x)/base))
+
+def random_search_custom_hdb(param_dist, X, n=1):
+    df = pd.DataFrame(ParameterSampler(param_dist, n))
+    for i in [0,1]:
+        rounding = np.ceil((df.iloc[:,i].max() - df.iloc[:,i].min()) / 20)
+        df.iloc[:,i] = df.iloc[:,i].apply(lambda x: custom_round(x, base=rounding))
+
+    allparams = df.to_dict('records')
     unique = list(set(frozenset(x.items()) for x in allparams))
     params = [dict(x) for x in unique]
     results = []
@@ -48,7 +57,9 @@ def random_search_custom_hdb(param_dist,X,n=1):
 ###############################################################################
 
 
-def plot_clusters_lite(X, labels, ax, downscale=100):
+def plot_clusters_lite(X, labels, ax, downscale='auto'):
+    if downscale == 'auto':
+        downscale = X.shape[0] // 2000 if X.shape[0] > 5000 else 1
     unique_labels = set(labels)
     colors = [plt.cm.tab20(each)
               for each in np.linspace(0, 1, len(unique_labels))]
@@ -123,7 +134,23 @@ def full_cluster_info(hdb):
     """)
 
     return full_info
+
+def make_training_dataset(size=1000, noise=0.03, std=0.1):
+    noisy_circles = datasets.make_circles(n_samples=size, factor=.3, noise=noise)
+    noisy_moons = datasets.make_moons(n_samples=size, noise=noise)
+    blobs = datasets.make_blobs(n_samples=size, random_state=8, centers=15, cluster_std=std)
     
+    moons = noisy_moons[0] * 4
+    moons[:,0] += 5
+    moons[:,1] -= 10
+
+    circles = noisy_circles[0] * 2
+    circles[:,0] -= 7
+    circles[:,1] += 3
+
+    XY = np.vstack((circles, moons, blobs[0]))
+    
+    return XY    
 
 def view_cluster(hdb, X, n, p=0.0, axes=None):
     if not hasattr(n,'__iter__'):
