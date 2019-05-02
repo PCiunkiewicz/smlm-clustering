@@ -60,7 +60,7 @@ class mainGUI(Frame):
         Frame.__init__(self, parent)
         self.parent = parent
 
-        # self.init_data()
+        self.init_vars()
         self.init_controls_UI()
         self.init_plot_UI()
 
@@ -90,6 +90,8 @@ class mainGUI(Frame):
             plot_clusters_lite(self.XY, np.zeros(self.XY.shape[0]), ax=axes[2])
             self.cluster_info.config(text='')
 
+            self.ROI()
+
     def trim_sample(self, n=200000):
         if self.XY.shape[0] > n:
                 self.XY = self.XY.sample(n, random_state=1).values
@@ -107,6 +109,7 @@ class mainGUI(Frame):
         except:
             messagebox.showinfo('Run HDBSCAN','Please load data first.')
             return
+
         self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
                                    gen_min_span_tree=True,
                                    min_cluster_size=self.min_cluster_size.value,
@@ -156,7 +159,28 @@ class mainGUI(Frame):
                                 linewidth=1.0, edgecolor=[1,0,0,1], 
                                 facecolor='none', zorder=3)
         axes[2].add_patch(self.region)
-        
+
+    def ROI(self, update=False, reset=False):
+        xlim, ylim = axes[2].get_xlim(), axes[2].get_ylim()
+        new_ROI = [*xlim, *ylim]
+        if self.prev_ROI != new_ROI:
+            self.prev_ROI = new_ROI
+            ROI_text = inspect.cleandoc(f"""X Range:   {xlim[0]:.2f}  --  {xlim[1]:.2f}
+            Y Range:   {ylim[0]:.2f}  --  {ylim[1]:.2f}""")
+            self.ROI_info.config(text=ROI_text)
+
+        if update:
+            mask = self.df['x [nm]'].between(*xlim) & self.df['y [nm]'].between(*ylim)
+            self.XY = self.df[['x [nm]', 'y [nm]']][mask].values
+
+        if reset:
+            try:
+                self.XY = self.df[['x [nm]', 'y [nm]']].values
+                axes[2].clear()
+                plot_clusters_lite(self.XY, np.zeros(self.XY.shape[0]), ax=axes[2])
+            except:
+                messagebox.showinfo('Reset ROI','Please load data first.')
+
     def draw_probability_marker(self):
         marker = axes[0].plot(self.probability.value/100, 0, 'r^', zorder=20)[0]
         marker.set_clip_on(False)
@@ -174,7 +198,7 @@ class mainGUI(Frame):
                           "min_samples": randint(self.samplemin.get(), self.samplemax.get())}
 
             self.results = random_search_custom_hdb(param_dist, self.XY, n=n)
-            table = tabulate(self.results.head(10), headers='keys', showindex=False)
+            table = tabulate(self.results.head(5), headers='keys', showindex=False)
             self.param_info.config(text=table)
 
             axes[0].clear()
@@ -187,6 +211,14 @@ class mainGUI(Frame):
 ###############################################################################
 
 
+    def make_header(self, headertext):
+        header = Frame(self.rightframe)
+        header.pack(side=TOP,fill=X)
+        Label(header,text=headertext,anchor='n',
+              font=("Courier",16)).pack(side=LEFT, anchor=W, pady=(25,0))
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=(5,1))
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=(1,5))
+
     def init_plot_UI(self):
         """Initializes the plot section of the GUI.
         """
@@ -198,28 +230,26 @@ class mainGUI(Frame):
         plot = plotFrame(container)
         plot.pack(fill=BOTH, expand=True)
 
-    def init_controls_UI(self):
-        """Initializes the controls section of the GUI.
-        """
+    def init_vars(self):
         self.clustermin = IntVar()
         self.clustermin.set(2)
         self.clustermax = IntVar()
         self.clustermax.set(100)
+
         self.samplemin = IntVar()
         self.samplemin.set(1)
         self.samplemax = IntVar()
         self.samplemax.set(50)
 
+        self.prev_ROI = [0, 0, 0, 0]
+
+    def init_controls_UI(self):
+        """Initializes the controls section of the GUI.
+        """
         self.rightframe = Frame(root)
         self.rightframe.pack(side=RIGHT,fill=BOTH, expand=True)
 
-        header = Frame(self.rightframe)
-        header.pack(side=TOP,fill=X)
-        Label(header,text="Clustering Tools",anchor='n',
-              font=("Courier",16)).pack(side=LEFT,anchor=W)
-
-        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=(5,1))
-        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=(1,5))
+        self.make_header("HDBSCAN Tools")
 
         controls = Frame(self.rightframe)
         self.run_hdbscan = Button(controls, text="Run HDBSCAN", 
@@ -229,24 +259,6 @@ class mainGUI(Frame):
                                 command=self.load_data)
         self.load.pack(side=LEFT)
         controls.pack()
-
-        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
-        
-        options = Frame(self.rightframe)
-        cluster_n = Frame(options)
-        Label(cluster_n, text="Cluster Index").pack(side=TOP, anchor=W)
-        self.cluster = ScaleEntry(cluster_n, from_=0, to=1,
-                                  scalewidth=200,compound=LEFT)
-        self.cluster.pack(side=BOTTOM)
-        cluster_n.pack(anchor=W, side=TOP,fill=X)
-        
-        prob = Frame(options)
-        Label(prob, text="Probability Threshold (%)").pack(side=TOP, anchor=W)
-        self.probability = ScaleEntry(prob, from_=0, to=99, 
-                                 scalewidth=200,compound=LEFT)
-        self.probability.pack(side=BOTTOM)
-        prob.pack(anchor=W, side=TOP,fill=X)
-        options.pack(anchor=W, side=TOP,fill=X)
 
         Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
 
@@ -273,13 +285,35 @@ class mainGUI(Frame):
         self.cluster_info = Label(self.rightframe, text='')
         self.cluster_info.pack(fill=X)
 
-        header = Frame(self.rightframe)
-        header.pack(side=TOP,fill=X)
-        Label(header,text="Parameter Search",anchor='n',
-              font=("Courier",16)).pack(side=LEFT, anchor=W, pady=(25,0))
+        self.make_header("Explore Clusters")
+        
+        options = Frame(self.rightframe)
+        cluster_n = Frame(options)
+        Label(cluster_n, text="Cluster Index").pack(side=TOP, anchor=W)
+        self.cluster = ScaleEntry(cluster_n, from_=0, to=1,
+                                  scalewidth=200,compound=LEFT)
+        self.cluster.pack(side=BOTTOM)
+        cluster_n.pack(anchor=W, side=TOP,fill=X)
+        
+        prob = Frame(options)
+        Label(prob, text="Probability Threshold (%)").pack(side=TOP, anchor=W)
+        self.probability = ScaleEntry(prob, from_=0, to=99, 
+                                 scalewidth=200,compound=LEFT)
+        self.probability.pack(side=BOTTOM)
+        prob.pack(anchor=W, side=TOP,fill=X)
+        options.pack(anchor=W, side=TOP,fill=X)
 
-        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X, pady=(5,1))
-        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X, pady=(1,5))
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
+
+        self.make_header("Parameter Search")
+
+        controls = Frame(self.rightframe)
+        self.param_search = Button(controls, text="Optimize Parameters", 
+                                   command=self.optimize_params)
+        self.param_search.pack(side=RIGHT)
+        controls.pack()
+
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
 
         cluster_lims = Frame(self.rightframe)
         Label(cluster_lims, text="Minimum Cluster range:  ").pack(side=LEFT)
@@ -295,17 +329,27 @@ class mainGUI(Frame):
         Entry(sample_lims, width=4, textvariable=self.samplemin).pack(side=RIGHT)
         sample_lims.pack(anchor=W, fill=X)
 
-        controls = Frame(self.rightframe)
-        self.param_search = Button(controls, text="Optimize Parameters", 
-                                   command=self.optimize_params)
-        self.param_search.pack(side=RIGHT)
-        controls.pack()
-
         Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
 
         self.param_info = Label(self.rightframe, text='')
         self.param_info.pack(fill=X)
-        
+
+        self.make_header("ROI")
+
+        controls = Frame(self.rightframe)
+        self.reset_ROI = Button(controls, text="Reset ROI", 
+                                command=lambda: self.ROI(reset=True))
+        self.reset_ROI.pack(side=RIGHT)
+        self.update_ROI = Button(controls, text="Update ROI", 
+                                command=lambda: self.ROI(update=True))
+        self.update_ROI.pack(side=RIGHT)
+        controls.pack()
+
+        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
+
+        self.ROI_info = Label(self.rightframe, text='')
+        self.ROI_info.pack(fill=X)
+        self.ROI()     
         
         self.current_values = {
         'cluster' : self.cluster,

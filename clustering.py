@@ -57,9 +57,9 @@ def random_search_custom_hdb(param_dist, X, n=1):
 ###############################################################################
 
 
-def plot_clusters_lite(X, labels, ax, downscale='auto'):
-    if downscale == 'auto':
-        downscale = X.shape[0] // 2000 if X.shape[0] > 5000 else 1
+def plot_clusters_lite(X, labels, ax, resolution='auto'):
+    if resolution == 'auto':
+        resolution = np.ptp(X, axis=0) / 200 if X.shape[0] > 5000 else None
     unique_labels = set(labels)
     colors = [plt.cm.tab20(each)
               for each in np.linspace(0, 1, len(unique_labels))]
@@ -72,8 +72,8 @@ def plot_clusters_lite(X, labels, ax, downscale='auto'):
             alpha, ms, zorder = 1, 2, 1
 
         xy = X[cluster]
-        if downscale > 1:
-            ax.plot(*resample_2d(xy, downscale), 'o', markerfacecolor=tuple(col),
+        if resolution is not None:
+            ax.plot(*resample_2d(xy, resolution), 'o', markerfacecolor=tuple(col),
                     markeredgewidth=0.0, markersize=ms, alpha=alpha, zorder=zorder)
         else:
             ax.plot(*xy.T, 'o', markerfacecolor=tuple(col),markeredgewidth=0.0, 
@@ -81,19 +81,19 @@ def plot_clusters_lite(X, labels, ax, downscale='auto'):
         
     ax.set(xlabel='X [nm]', ylabel='Y [nm]')
         
-def resample_2d(X, downscale=100):
+def resample_2d(X, resolution):
     x, y = X[:,0], X[:,1]
-    nbins = max(X.shape[0] // downscale, 1)
+    nbins = np.ptp(X, axis=0) / resolution
     
-    hh, locx, locy = np.histogram2d(x, y, bins=nbins)
+    hh, locx, locy = np.histogram2d(x, y, bins=np.ceil(nbins))
     xwidth, ywidth = np.diff(locx).mean(), np.diff(locy).mean()
     mask = hh != 0
     
     locx = locx[:-1] + xwidth
     locy = locy[:-1] + ywidth
-    yy, xx = np.meshgrid(locy, locx) + np.random.uniform(-np.mean([xwidth, ywidth])/2,
-                                                         np.mean([xwidth, ywidth])/2,
-                                                         size=hh.shape)
+    yy, xx = np.meshgrid(locy, locx)
+    yy += np.random.uniform(-xwidth/2, xwidth/2, size=hh.shape)
+    xx += np.random.uniform(-ywidth/2, ywidth/2, size=hh.shape)
     
     return xx[mask], yy[mask]
 
@@ -107,8 +107,15 @@ def cluster_stats(hdb, X, n, p=0.0):
     stats['threshold'] = np.round(np.sum(mask)/np.sum(clust)*100, 2)
     stats['gy_radius'] = np.round(gy_radius(xy), 2)
     stats['density'] = np.round(cluster_density(xy), 3)
+
+    cluster_info = inspect.cleandoc(f"""Cluster {n}
+    Total points -- {stats['total']}
+    Points in threshold -- {stats['threshold']}%
+    Radius of gyration -- {stats['gy_radius']}nm
+    Relative Density -- {stats['density']}
+    """)
     
-    return stats
+    return stats, cluster_info
 
 def gy_radius(X):
     cm = np.mean(X, axis=0)
@@ -153,30 +160,26 @@ def make_training_dataset(size=1000, noise=0.03, std=0.1):
     return XY    
 
 def view_cluster(hdb, X, n, p=0.0, axes=None):
-    if not hasattr(n,'__iter__'):
-        n = [n]
-    for i in n:
-        clust = hdb.labels_ == i
+    clust = hdb.labels_ == n
+    if clust.sum() > 0:
         prob = hdb.probabilities_[clust]
 
         if axes is None:
-            fig, axes = plt.subplots(1,2,figsize=[14,4])
+            fig, axes = plt.subplots(1, 2, figsize=[14,4])
 
-        stats = cluster_stats(hdb, X, n, p)
-        cluster_info = inspect.cleandoc(f"""Cluster {i}
-        Total points -- {stats['total']}
-        Points in threshold -- {stats['threshold']}%
-        Radius of gyration -- {stats['gy_radius']}nm
-        Relative Density -- {stats['density']}
-        """)
+        stats, cluster_info = cluster_stats(hdb, X, n, p)
+
         try:
             sns.distplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20))
         except:
             sns.distplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20), kde=False)
+
         axes[0].set(xlim=(0,1), xlabel='Probability', ylabel='Frequency')
         axes[0].text(0.05, 0.95, cluster_info, transform=axes[0].transAxes,
                      horizontalalignment='left', verticalalignment='top',)
 
-        sns.scatterplot(*X[clust][prob<=p].T,alpha=0.5,color='r',ax=axes[1],label=f'$p\\leq{p}$')
-        sns.scatterplot(*X[clust][prob>p].T,alpha=0.5,color='b',ax=axes[1],label=f'$p>{p}$')
+        sns.scatterplot(*X[clust][prob<=p].T, alpha=0.5, color='r', ax=axes[1], 
+                        label=f'$p\\leq{p}$')
+        sns.scatterplot(*X[clust][prob>p].T, alpha=0.5, color='b', ax=axes[1], 
+                        label=f'$p>{p}$')
         axes[1].set(xlabel='X [nm]', ylabel='Y [nm]')
