@@ -30,7 +30,7 @@ def custom_round(x, base=5):
 def random_search_custom_hdb(param_dist, X, n=1):
     df = pd.DataFrame(ParameterSampler(param_dist, n))
     for i in [0,1]:
-        rounding = np.ceil((df.iloc[:,i].max() - df.iloc[:,i].min()) / 20)
+        rounding = np.ceil((df.iloc[:,i].max() - df.iloc[:,i].min()) / 30)
         df.iloc[:,i] = df.iloc[:,i].apply(lambda x: custom_round(x, base=rounding))
 
     allparams = df.to_dict('records')
@@ -142,10 +142,16 @@ def full_cluster_info(hdb):
 
     return full_info
 
-def make_training_dataset(size=1000, noise=0.03, std=0.1):
-    noisy_circles = datasets.make_circles(n_samples=size, factor=.3, noise=noise)
-    noisy_moons = datasets.make_moons(n_samples=size, noise=noise)
-    blobs = datasets.make_blobs(n_samples=size, random_state=8, centers=15, cluster_std=std)
+def make_training_dataset(size=1000, noise=0.03, std=0.1, state=8):
+    noisy_circles = datasets.make_circles(n_samples=size, random_state=state, 
+                                          factor=.3, noise=noise)
+    noisy_moons = datasets.make_moons(n_samples=size, random_state=state, 
+                                      noise=noise)
+    blobs = datasets.make_blobs(n_samples=size, random_state=state, 
+                                centers=15, cluster_std=std)
+    np.random.seed(state)
+    bkgnd = np.dstack((np.random.uniform(-12, 15, size=size//4),
+                       np.random.uniform(-15, 12, size=size//4)))[0]
     
     moons = noisy_moons[0] * 4
     moons[:,0] += 5
@@ -155,7 +161,7 @@ def make_training_dataset(size=1000, noise=0.03, std=0.1):
     circles[:,0] -= 7
     circles[:,1] += 3
 
-    XY = np.vstack((circles, moons, blobs[0]))
+    XY = np.vstack((circles, moons, blobs[0], bkgnd)) * 1000
     
     return XY    
 

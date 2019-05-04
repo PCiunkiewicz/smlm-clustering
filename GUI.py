@@ -77,6 +77,7 @@ class mainGUI(Frame):
                                           initialdir=os.getcwd(), 
                                           filetypes=[("ThunderSTORM", "*.csv")])
         if path:
+            self.filename = os.path.split(path)[1][:-4]
             self.df = pd.read_csv(path)
             self.XY = self.df[['x [nm]', 'y [nm]']]
 
@@ -198,6 +199,7 @@ class mainGUI(Frame):
                           "min_samples": randint(self.samplemin.get(), self.samplemax.get())}
 
             self.results = random_search_custom_hdb(param_dist, self.XY, n=n)
+            self.results.to_csv(f'Parameter_search_{self.filename}.csv', index=False)
             table = tabulate(self.results.head(5), headers='keys', showindex=False)
             self.param_info.config(text=table)
 
