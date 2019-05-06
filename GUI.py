@@ -93,9 +93,13 @@ class mainGUI(Frame):
 
             self.ROI()
 
-    def trim_sample(self, n=200000):
+    def trim_sample(self, n=500000):
         if self.XY.shape[0] > n:
+            warn = 'Would you like to downsample your dataset for better performance?'
+            if messagebox.askyesno('Large Dataset Detected', warn):
                 self.XY = self.XY.sample(n, random_state=1).values
+            else:
+                self.XY = self.XY.values
         else:
             self.XY = self.XY.values
 
@@ -199,13 +203,46 @@ class mainGUI(Frame):
                           "min_samples": randint(self.samplemin.get(), self.samplemax.get())}
 
             self.results = random_search_custom_hdb(param_dist, self.XY, n=n)
-            self.results.to_csv(f'Parameter_search_{self.filename}.csv', index=False)
-            table = tabulate(self.results.head(5), headers='keys', showindex=False)
-            self.param_info.config(text=table)
+            self.results.to_csv(f'Params/Parameter_search_{self.filename}.csv', index=False)
+            self.plot_param_search()
 
-            axes[0].clear()
-            self.results.plot.scatter('min_cluster_size', 'min_samples',  c='score', 
-                                      cmap='RdYlGn', ax=axes[0], colorbar=False)
+    def plot_param_search(self):
+        results_window = Toplevel(root, width=250, height=250)
+        fig = Figure(figsize=(8,6), dpi=80)
+        ax = fig.add_subplot(111)
+        fig.subplots_adjust(right=1.0)
+
+        plot = plotFrame(results_window, fig)
+        plot.pack(side=LEFT, fill=BOTH, expand=True)
+        # self.results.plot.scatter('min_cluster_size', 'min_samples',
+        #                           c='score', cmap='RdYlGn', ax=ax)
+        heatmap = self.results.pivot('min_samples', 'min_cluster_size', 'score')
+        sns.heatmap(heatmap, ax=ax, cmap='RdYlGn')
+
+        self.draw_param_table(results_window)
+
+    def draw_param_table(self, results_window):
+        subframe = Frame(results_window)
+        subframe.pack(side=LEFT, fill=BOTH, expand=True)
+
+        self.make_header(subframe, "Parameter Search Results")
+
+        table = tabulate(self.results.head(20), headers='keys', showindex=False)
+        param_info = Text(subframe, width=40, relief='flat', bg=themebg)
+        param_info.pack(fill=X)
+        param_info.insert(END, self.results.to_string(index=False))
+        param_info.config(state='disabled')
+
+        param_info.tag_add("cols", "1.0", "1.99")
+        param_info.tag_config("cols", background='lightblue')
+        for i in range(3, self.results.shape[0]+2, 2):
+            param_info.tag_add("odd", str(i)+".0", str(i)+".99")
+        param_info.tag_config("odd", background="lightgray")
+
+        param_info.tag_configure("center", justify='center')
+        param_info.tag_add("center", "1.0", "end")
+
+
 
 
 ###############################################################################
@@ -213,23 +250,18 @@ class mainGUI(Frame):
 ###############################################################################
 
 
-    def make_header(self, headertext):
-        header = Frame(self.rightframe)
+    def make_header(self, frame, headertext):
+        header = Frame(frame)
         header.pack(side=TOP,fill=X)
         Label(header,text=headertext,anchor='n',
               font=("Courier",16)).pack(side=LEFT, anchor=W, pady=(25,0))
-        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=(5,1))
-        Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=(1,5))
+        Separator(frame, orient=HORIZONTAL).pack(fill=X,pady=(5,1))
+        Separator(frame, orient=HORIZONTAL).pack(fill=X,pady=(1,5))
 
     def init_plot_UI(self):
-        """Initializes the plot section of the GUI.
-        """
-        leftframe = Frame(root)
+        leftframe = Frame(root, width=500, height=500)
         leftframe.pack(side=LEFT,fill=BOTH, expand=True)
-        
-        container = Frame(leftframe,width=500, height=500)
-        container.pack(side=TOP, fill=BOTH, expand=True)
-        plot = plotFrame(container)
+        plot = plotFrame(leftframe, f)
         plot.pack(fill=BOTH, expand=True)
 
     def init_vars(self):
@@ -249,9 +281,9 @@ class mainGUI(Frame):
         """Initializes the controls section of the GUI.
         """
         self.rightframe = Frame(root)
-        self.rightframe.pack(side=RIGHT,fill=BOTH, expand=True)
+        self.rightframe.pack(side=RIGHT, fill=BOTH, expand=True)
 
-        self.make_header("HDBSCAN Tools")
+        self.make_header(self.rightframe, "HDBSCAN Tools")
 
         controls = Frame(self.rightframe)
         self.run_hdbscan = Button(controls, text="Run HDBSCAN", 
@@ -287,7 +319,7 @@ class mainGUI(Frame):
         self.cluster_info = Label(self.rightframe, text='')
         self.cluster_info.pack(fill=X)
 
-        self.make_header("Explore Clusters")
+        self.make_header(self.rightframe, "Explore Clusters")
         
         options = Frame(self.rightframe)
         cluster_n = Frame(options)
@@ -307,7 +339,7 @@ class mainGUI(Frame):
 
         Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
 
-        self.make_header("Parameter Search")
+        self.make_header(self.rightframe, "Parameter Search")
 
         controls = Frame(self.rightframe)
         self.param_search = Button(controls, text="Optimize Parameters", 
@@ -333,10 +365,7 @@ class mainGUI(Frame):
 
         Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
 
-        self.param_info = Label(self.rightframe, text='')
-        self.param_info.pack(fill=X)
-
-        self.make_header("ROI")
+        self.make_header(self.rightframe, "ROI")
 
         controls = Frame(self.rightframe)
         self.reset_ROI = Button(controls, text="Reset ROI", 
@@ -370,10 +399,10 @@ class plotFrame(Frame):
     to be animated within, including TKinter
     drawing canvas and matplotlib toolbar.
     """
-    def __init__(self, parent):
+    def __init__(self, parent, fig):
         Frame.__init__(self, parent)
 
-        canvas = FigureCanvasTkAgg(f, self)
+        canvas = FigureCanvasTkAgg(fig, self)
         canvas.draw()
         canvas.get_tk_widget().pack(side=BOTTOM, fill=BOTH, expand=True)
 

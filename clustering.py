@@ -10,6 +10,7 @@ import inspect
 import pandas as pd
 import numpy as np
 from numpy.linalg import norm
+from scipy.spatial import ConvexHull
 from tqdm import trange
 from time import time
 import matplotlib.pyplot as plt
@@ -30,7 +31,7 @@ def custom_round(x, base=5):
 def random_search_custom_hdb(param_dist, X, n=1):
     df = pd.DataFrame(ParameterSampler(param_dist, n))
     for i in [0,1]:
-        rounding = np.ceil((df.iloc[:,i].max() - df.iloc[:,i].min()) / 30)
+        rounding = np.ceil((df.iloc[:,i].max() - df.iloc[:,i].min()) / 100)
         df.iloc[:,i] = df.iloc[:,i].apply(lambda x: custom_round(x, base=rounding))
 
     allparams = df.to_dict('records')
@@ -104,18 +105,19 @@ def cluster_stats(hdb, X, n, p=0.0):
     
     stats = {}
     stats['total'] = np.sum(clust)
-    stats['threshold'] = np.round(np.sum(mask)/np.sum(clust)*100, 2)
-    stats['gy_radius'] = np.round(gy_radius(xy), 2)
-    stats['density'] = np.round(cluster_density(xy), 3)
+    stats['threshold'] = np.sum(mask)/np.sum(clust)*100
+    stats['gy_radius'] = gy_radius(xy)
+    stats['density'], vertices, unit = cluster_density(xy)
+    perimeter = xy[vertices]
 
     cluster_info = inspect.cleandoc(f"""Cluster {n}
     Total points -- {stats['total']}
-    Points in threshold -- {stats['threshold']}%
-    Radius of gyration -- {stats['gy_radius']}nm
-    Relative Density -- {stats['density']}
+    Points in threshold -- {stats['threshold']:.2f}%
+    Radius of gyration (nm) -- {stats['gy_radius']:.2f}
+    Density (per {unit}^2) -- {stats['density']:.2f}
     """)
     
-    return stats, cluster_info
+    return stats, cluster_info, perimeter
 
 def gy_radius(X):
     cm = np.mean(X, axis=0)
@@ -125,10 +127,15 @@ def gy_radius(X):
 
 def cluster_density(X):
     total_points = X.shape[0]
-    area = np.pi * gy_radius(X)**2
-    density = total_points / area
+    X_ch = ConvexHull(X)
+    area = X_ch.volume # 2D volume is area for ConvexHull
+    density = total_points / area * 1e6 # density per square micrometer
+    vertices = np.append(X_ch.vertices, X_ch.vertices[0]) # first entry at end
+    unit = ("micron" if density < 1e5 else "nm")
+    if density >= 1e5:
+        density /= 1e6
     
-    return density
+    return density, vertices, unit
 
 def full_cluster_info(hdb):
     labels = hdb.labels_
@@ -173,7 +180,7 @@ def view_cluster(hdb, X, n, p=0.0, axes=None):
         if axes is None:
             fig, axes = plt.subplots(1, 2, figsize=[14,4])
 
-        stats, cluster_info = cluster_stats(hdb, X, n, p)
+        stats, cluster_info, perimeter = cluster_stats(hdb, X, n, p)
 
         try:
             sns.distplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20))
@@ -188,4 +195,5 @@ def view_cluster(hdb, X, n, p=0.0, axes=None):
                         label=f'$p\\leq{p}$')
         sns.scatterplot(*X[clust][prob>p].T, alpha=0.5, color='b', ax=axes[1], 
                         label=f'$p>{p}$')
+        axes[1].plot(*perimeter.T, 'k:')
         axes[1].set(xlabel='X [nm]', ylabel='Y [nm]')
