@@ -30,10 +30,11 @@ from tkinter.ttk import *
 from tkinter import filedialog, messagebox, simpledialog
 from ttkthemes import ThemedTk
 from ttkwidgets import *
+from ttkwidgets.frames import ScrolledFrame
 
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning) 
-
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+np.seterr(divide='ignore')
 
 ###############################################################################
 ################################## Globals ####################################
@@ -118,7 +119,8 @@ class mainGUI(Frame):
         self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,
                                    gen_min_span_tree=True,
                                    min_cluster_size=self.min_cluster_size.value,
-                                   min_samples=self.min_samples.value)
+                                   min_samples=self.min_samples.value,
+                                   allow_single_cluster=self.allowsingle.get())
         self.hdb.fit(self.XY)
         self.cluster.configure({'to': len(set(self.hdb.labels_[self.hdb.labels_ != -1])) - 1})
         axes[2].clear()
@@ -175,8 +177,11 @@ class mainGUI(Frame):
             self.ROI_info.config(text=ROI_text)
 
         if update:
-            mask = self.df['x [nm]'].between(*xlim) & self.df['y [nm]'].between(*ylim)
-            self.XY = self.df[['x [nm]', 'y [nm]']][mask].values
+            try:
+                mask = self.df['x [nm]'].between(*xlim) & self.df['y [nm]'].between(*ylim)
+                self.XY = self.df[['x [nm]', 'y [nm]']][mask].values
+            except:
+                messagebox.showinfo('Reset ROI','Please load data first.')
 
         if reset:
             try:
@@ -202,47 +207,52 @@ class mainGUI(Frame):
             param_dist = {"min_cluster_size": randint(self.clustermin.get(), self.clustermax.get()),
                           "min_samples": randint(self.samplemin.get(), self.samplemax.get())}
 
-            self.results = random_search_custom_hdb(param_dist, self.XY, n=n)
+            self.results = random_search_custom_hdb(param_dist, self.XY, n=n,
+                                                    allowsingle=self.allowsingle.get(),
+                                                    silhouette=self.silhouette.get(),
+                                                    calinski=self.calinski.get(),
+                                                    davies=self.davies.get())
             self.results.to_csv(f'Params/Parameter_search_{self.filename}.csv', index=False)
             self.plot_param_search()
 
     def plot_param_search(self):
-        results_window = Toplevel(root, width=250, height=250)
-        fig = Figure(figsize=(8,6), dpi=80)
-        ax = fig.add_subplot(111)
-        fig.subplots_adjust(right=1.0)
+        try:
+            self.results_window.destroy()
+        except:
+            pass
 
-        plot = plotFrame(results_window, fig)
-        plot.pack(side=LEFT, fill=BOTH, expand=True)
-        # self.results.plot.scatter('min_cluster_size', 'min_samples',
-        #                           c='score', cmap='RdYlGn', ax=ax)
+        self.results_window = Toplevel(root)
+        self.param_fig = Figure(figsize=(8,6), dpi=80)
+        self.param_ax = self.param_fig.add_subplot(111)
+        self.param_fig.subplots_adjust(right=1.0)
+
+        self.results_plot = plotFrame(self.results_window, self.param_fig)
+        self.results_plot.pack(side=LEFT, fill=BOTH, expand=True)
         heatmap = self.results.pivot('min_samples', 'min_cluster_size', 'score')
-        sns.heatmap(heatmap, ax=ax, cmap='RdYlGn')
+        sns.heatmap(heatmap, ax=self.param_ax, cmap='RdYlGn')
 
-        self.draw_param_table(results_window)
+        var = StringVar()
+        scores = self.results.drop(['min_samples', 'min_cluster_size'], 
+                                   axis=1).columns.values
+        OptionMenu(self.results_window, var, 'Select Plot', *scores, 
+                   command=self.update_param_plot).pack(side=BOTTOM)
 
-    def draw_param_table(self, results_window):
-        subframe = Frame(results_window)
-        subframe.pack(side=LEFT, fill=BOTH, expand=True)
+        self.draw_param_table()
+        self.results_window.geometry("1000x600+0+0")
+
+    def update_param_plot(self, score):
+        self.param_fig.clear(keep_observers=True)
+        self.param_ax = self.param_fig.add_subplot(111)
+        heatmap = self.results.pivot('min_samples', 'min_cluster_size', score)
+        sns.heatmap(heatmap, ax=self.param_ax, cmap='RdYlGn')
+        self.results_plot.canvas.draw()
+
+    def draw_param_table(self):
+        subframe = Frame(self.results_window)
+        table = displayTable(self.results_window, self.results)
+        subframe.pack(side=LEFT)
 
         self.make_header(subframe, "Parameter Search Results")
-
-        table = tabulate(self.results.head(20), headers='keys', showindex=False)
-        param_info = Text(subframe, width=40, relief='flat', bg=themebg)
-        param_info.pack(fill=X)
-        param_info.insert(END, self.results.to_string(index=False))
-        param_info.config(state='disabled')
-
-        param_info.tag_add("cols", "1.0", "1.99")
-        param_info.tag_config("cols", background='lightblue')
-        for i in range(3, self.results.shape[0]+2, 2):
-            param_info.tag_add("odd", str(i)+".0", str(i)+".99")
-        param_info.tag_config("odd", background="lightgray")
-
-        param_info.tag_configure("center", justify='center')
-        param_info.tag_add("center", "1.0", "end")
-
-
 
 
 ###############################################################################
@@ -257,6 +267,11 @@ class mainGUI(Frame):
               font=("Courier",16)).pack(side=LEFT, anchor=W, pady=(25,0))
         Separator(frame, orient=HORIZONTAL).pack(fill=X,pady=(5,1))
         Separator(frame, orient=HORIZONTAL).pack(fill=X,pady=(1,5))
+
+    def make_select(self, frame, text, var):
+        subframe = Frame(frame)
+        Checkbutton(subframe, variable=var, text=text).pack(side=BOTTOM, anchor=W)
+        subframe.pack(anchor=W, side=TOP, fill=X)
 
     def init_plot_UI(self):
         leftframe = Frame(root, width=500, height=500)
@@ -274,6 +289,11 @@ class mainGUI(Frame):
         self.samplemin.set(1)
         self.samplemax = IntVar()
         self.samplemax.set(50)
+
+        self.allowsingle = BooleanVar()
+        self.silhouette = BooleanVar()
+        self.calinski = BooleanVar()
+        self.davies = BooleanVar()
 
         self.prev_ROI = [0, 0, 0, 0]
 
@@ -313,6 +333,8 @@ class mainGUI(Frame):
         self.min_samples._variable.set(5)
         self.min_samples._on_scale(None)
         minsamples.pack(anchor=W, side=TOP, fill=X)
+
+        self.make_select(self.rightframe, "Allow Single Cluster", self.allowsingle)
         
         Separator(self.rightframe, orient=HORIZONTAL).pack(fill=X,pady=5)
         
@@ -363,6 +385,10 @@ class mainGUI(Frame):
         Entry(sample_lims, width=4, textvariable=self.samplemin).pack(side=RIGHT)
         sample_lims.pack(anchor=W, fill=X)
 
+        self.make_select(self.rightframe, "Silhouette Score", self.silhouette)
+        self.make_select(self.rightframe, "Calinski-Harabaz Score", self.calinski)
+        self.make_select(self.rightframe, "Davies-Bouldin Score", self.davies)
+
         Separator(self.rightframe,orient=HORIZONTAL).pack(fill=X,pady=5)
 
         self.make_header(self.rightframe, "ROI")
@@ -402,13 +428,36 @@ class plotFrame(Frame):
     def __init__(self, parent, fig):
         Frame.__init__(self, parent)
 
-        canvas = FigureCanvasTkAgg(fig, self)
-        canvas.draw()
-        canvas.get_tk_widget().pack(side=BOTTOM, fill=BOTH, expand=True)
+        self.canvas = FigureCanvasTkAgg(fig, self)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(side=BOTTOM, fill=BOTH, expand=True)
 
-        toolbar = NavigationToolbar2Tk(canvas, self)
+        toolbar = NavigationToolbar2Tk(self.canvas, self)
         toolbar.update()
-        canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=True)
+        self.canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=True)
+
+class displayTable(Frame):
+    def __init__(self, parent, data):
+        Frame.__init__(self, parent)
+        columns = data.columns.values
+        table = Table(self, columns=columns, drag_cols=True,
+                      drag_rows=False, height=20)
+        for indx, col in enumerate(columns):
+            table.heading(indx, text=col)
+            table.column(indx, minwidth=50, width=100, stretch=False, type=float)
+
+        for i, x in enumerate(data.values):
+            table.insert('', 'end', iid=i, values=tuple(x))
+
+        sx = Scrollbar(self, orient='horizontal', command=table.xview)
+        sy = Scrollbar(self, orient='vertical', command=table.yview)
+        table.configure(yscrollcommand=sy.set, xscrollcommand=sx.set)
+
+        sx.pack(side=BOTTOM, anchor=S, fill=X)
+        sy.pack(side=RIGHT, anchor=E, fill=Y)
+        table.pack(side=BOTTOM)
+
+        self.pack(side=BOTTOM)
 
 
 ###############################################################################

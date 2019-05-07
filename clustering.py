@@ -15,6 +15,9 @@ from tqdm import trange
 from time import time
 import matplotlib.pyplot as plt
 from sklearn.model_selection import ParameterSampler
+from sklearn.metrics import silhouette_score
+from sklearn.metrics import calinski_harabaz_score
+from sklearn.metrics import davies_bouldin_score
 from sklearn import datasets
 import seaborn as sns
 sns.set()
@@ -28,7 +31,8 @@ sns.set()
 def custom_round(x, base=5):
     return int(base * np.ceil(float(x)/base))
 
-def random_search_custom_hdb(param_dist, X, n=1):
+def random_search_custom_hdb(param_dist, X, n=1, allowsingle=False, 
+                             silhouette=False, calinski=False, davies=False):
     df = pd.DataFrame(ParameterSampler(param_dist, n))
     for i in [0,1]:
         rounding = np.ceil((df.iloc[:,i].max() - df.iloc[:,i].min()) / 100)
@@ -40,15 +44,21 @@ def random_search_custom_hdb(param_dist, X, n=1):
     results = []
     
     for i in trange(len(params)):
-        hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6,gen_min_span_tree=True)
+        hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6, gen_min_span_tree=True,
+                              allow_single_cluster=allowsingle)
         hdb.set_params(**params[i])
         hdb.fit(X)
-        params[i]['score'] = np.round(hdb.relative_validity_, 3)
+        params[i]['score'] = hdb.relative_validity_
+        if silhouette:
+            params[i]['silhouette'] = silhouette_score(X, hdb.labels_)
+        if calinski:
+            params[i]['calinski_harabaz'] = calinski_harabaz_score(X, hdb.labels_)
+        if davies:
+            params[i]['davies_bouldin'] = davies_bouldin_score(X, hdb.labels_)
         results.append(params[i])
         
-    results = pd.DataFrame(results)
-    results.sort_values(by=['score'],ascending=False,inplace=True)
-    results = results[np.roll(results.columns.values,1)]
+    results = pd.DataFrame(results).round(3)
+    results.sort_values(by=['score'], ascending=False, inplace=True)
     
     return results
 
