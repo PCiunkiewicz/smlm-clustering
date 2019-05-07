@@ -29,12 +29,14 @@ from tkinter import *
 from tkinter.ttk import *
 from tkinter import filedialog, messagebox, simpledialog
 from ttkthemes import ThemedTk
+import ttkwidgets
 from ttkwidgets import *
 from ttkwidgets.frames import ScrolledFrame
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 np.seterr(divide='ignore')
+
 
 ###############################################################################
 ################################## Globals ####################################
@@ -89,7 +91,7 @@ class mainGUI(Frame):
 
             self.min_cluster_size.configure({'to': min([self.XY.shape[0]//10, 5000])})
             self.min_samples.configure({'to': min([self.XY.shape[0]//10, 1000])})
-            plot_clusters_lite(self.XY, np.zeros(self.XY.shape[0]), ax=axes[2])
+            plot_clusters_lite(self.XY, -np.ones(self.XY.shape[0]), ax=axes[2])
             self.cluster_info.config(text='')
 
             self.ROI()
@@ -180,6 +182,8 @@ class mainGUI(Frame):
             try:
                 mask = self.df['x [nm]'].between(*xlim) & self.df['y [nm]'].between(*ylim)
                 self.XY = self.df[['x [nm]', 'y [nm]']][mask].values
+                axes[2].clear()
+                plot_clusters_lite(self.XY, -np.ones(self.XY.shape[0]), ax=axes[2])
             except:
                 messagebox.showinfo('Reset ROI','Please load data first.')
 
@@ -187,7 +191,7 @@ class mainGUI(Frame):
             try:
                 self.XY = self.df[['x [nm]', 'y [nm]']].values
                 axes[2].clear()
-                plot_clusters_lite(self.XY, np.zeros(self.XY.shape[0]), ax=axes[2])
+                plot_clusters_lite(self.XY, -np.ones(self.XY.shape[0]), ax=axes[2])
             except:
                 messagebox.showinfo('Reset ROI','Please load data first.')
 

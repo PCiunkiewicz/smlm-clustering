@@ -103,6 +103,7 @@ def resample_2d(X, resolution):
     locx = locx[:-1] + xwidth
     locy = locy[:-1] + ywidth
     yy, xx = np.meshgrid(locy, locx)
+    np.random.seed(0)
     yy += np.random.uniform(-xwidth/2, xwidth/2, size=hh.shape)
     xx += np.random.uniform(-ywidth/2, ywidth/2, size=hh.shape)
     
