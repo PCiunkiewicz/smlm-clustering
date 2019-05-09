@@ -10,14 +10,19 @@ import inspect
 import pandas as pd
 import numpy as np
 from numpy.linalg import norm
-from scipy.spatial import ConvexHull
 from tqdm import trange
 from time import time
 import matplotlib.pyplot as plt
+
 from sklearn.model_selection import ParameterSampler
 from sklearn.metrics import silhouette_score
 from sklearn.metrics import calinski_harabaz_score
 from sklearn.metrics import davies_bouldin_score
+
+from scipy.spatial import ConvexHull
+from scipy.stats import gaussian_kde
+from scipy.signal import argrelmin
+from scipy.signal import argrelmax
 from sklearn import datasets
 import seaborn as sns
 sns.set()
@@ -148,14 +153,49 @@ def cluster_density(X):
     
     return density, vertices, unit
 
+def _custom_ravel(a, b):
+    ab = []
+    for i, x in enumerate(a):
+        ab.append(x)
+        try:
+            ab.append(b[i])
+        except:
+            pass
+    return ab
+        
+def count_multi_clusters(hdb):
+    count = 0
+    for n in set(hdb.labels_):
+        try:
+            clust = hdb.labels_ == n
+            if clust.sum() > 0:
+                prob = hdb.probabilities_[clust]
+
+                kernel = gaussian_kde(prob)
+                X = np.linspace(0, 1, 100)
+                Z = kernel(X)
+
+                mins = argrelmin(Z)[0]
+                maxs = argrelmax(Z)[0]
+                normed_peaks = np.diff(_custom_ravel(Z[maxs], Z[mins])) / Z.max()
+
+                if normed_peaks[normed_peaks < -0.25].size > 0:
+                    count += 1
+        except:
+            pass
+
+    return count
+
 def full_cluster_info(hdb):
     labels = hdb.labels_
     n_clusters = len(set(labels[labels != -1]))
     n_points = len(labels)
     n_outliers = np.sum(labels == -1)
+    n_multi = count_multi_clusters(hdb)
     full_info = inspect.cleandoc(f"""Total number of points: {n_points}
     Estimated number of clusters: {n_clusters}
     Estimated number of outliers: {n_outliers}
+    Estimated number of multi-clusters: {n_multi}
     """)
 
     return full_info
