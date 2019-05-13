@@ -11,7 +11,7 @@ class controlsFrame(Frame):
         Frame.__init__(self, parent)
 
         Separator(self, orient=VERTICAL).pack(side=LEFT, fill=Y, padx=(10,10))
-        Separator(self, orient=VERTICAL).pack(side=RIGHT, fill=Y, padx=(10,10))
+        Separator(self, orient=VERTICAL).pack(side=RIGHT, fill=Y, padx=(10,0))
 
         container = Frame(self)
         Frame(container).pack()

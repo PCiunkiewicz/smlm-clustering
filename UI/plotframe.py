@@ -16,7 +16,7 @@ class plotFrame(Frame):
 
         self.canvas = FigureCanvasTkAgg(fig, self)
         self.canvas.draw()
-        self.canvas.get_tk_widget().pack(side=BOTTOM, fill=BOTH, expand=True)
+        self.canvas.get_tk_widget().pack(side=LEFT, fill=BOTH, expand=True)
 
         toolbar = NavigationToolbar2Tk(self.canvas, self)
         toolbar.config(background="#f5f6f7")

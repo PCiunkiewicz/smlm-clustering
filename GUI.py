@@ -56,11 +56,11 @@ class mainGUI(Frame):
         Frame.__init__(self, parent)
         self.init_vars()
 
-        self.controls = UI.controlsFrame(root, self)
-        self.controls.pack(side=RIGHT, fill=Y, expand=True, padx=5, anchor=W)
-
         self.plot = UI.plotFrame(root, f)
-        self.plot.pack(side=LEFT,fill=BOTH, expand=True)
+        self.plot.pack(side=LEFT, fill=BOTH, expand=True)
+
+        self.controls = UI.controlsFrame(root, self)
+        self.controls.pack(side=RIGHT, fill=BOTH, expand=False, padx=5, anchor=W)
 
         self.ani = animation.FuncAnimation(f, self.animate, interval=100)
 
@@ -318,11 +318,6 @@ class mainGUI(Frame):
         subframe.pack(anchor=W, side=TOP, fill=X)
 
 
-###############################################################################
-############################# Application Launch ##############################
-###############################################################################
-
-
 def clearterminal():
     """Clear the terminal window if using
     command line to launch the program.
@@ -331,6 +326,11 @@ def clearterminal():
         os.system('clear')
     if sys.platform.lower() == 'win32':
         os.system('cls')
+
+
+###############################################################################
+############################# Application Launch ##############################
+###############################################################################
 
 
 # Main function and class calls
