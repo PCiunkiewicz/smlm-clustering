@@ -41,6 +41,7 @@ from clustering import *
 
 if getattr( sys, 'frozen', False ) :
     os.chdir(os.path.dirname(os.getcwd()))
+    multiprocessing.freeze_support()
 
 matplotlib.use('TkAgg')
 warnings.filterwarnings("ignore", category=DeprecationWarning)
