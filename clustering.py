@@ -4,20 +4,18 @@
 ###############################################################################
 
 
-import sklearn
 import hdbscan
 import inspect
 import pandas as pd
 import numpy as np
 from numpy.linalg import norm
 from tqdm import trange
-from time import time
 import matplotlib.pyplot as plt
 
 from sklearn.model_selection import ParameterSampler
 from sklearn.metrics import silhouette_score
 from sklearn.metrics import silhouette_samples
-from sklearn.metrics import calinski_harabaz_score
+from sklearn.metrics import calinski_harabasz_score
 from sklearn.metrics import davies_bouldin_score
 from yellowbrick.cluster import SilhouetteVisualizer
 
@@ -27,6 +25,8 @@ from scipy.signal import argrelmin
 from scipy.signal import argrelmax
 from sklearn import datasets
 import seaborn as sns
+
+
 sns.set()
 
 
@@ -79,7 +79,7 @@ def random_search_custom_hdb(param_dist, X, n=1, allowsingle=False, alpha=1.0,
     unique = list(set(frozenset(x.items()) for x in allparams))
     params = [dict(x) for x in unique]
     results = []
-    
+
     for i in trange(len(params)):
         hdb = hdbscan.HDBSCAN(core_dist_n_jobs=6, gen_min_span_tree=True,
                               allow_single_cluster=allowsingle, alpha=alpha,
@@ -90,14 +90,14 @@ def random_search_custom_hdb(param_dist, X, n=1, allowsingle=False, alpha=1.0,
         if silhouette:
             params[i]['silhouette'] = silhouette_score(X, hdb.labels_)
         if calinski:
-            params[i]['calinski_harabaz'] = calinski_harabaz_score(X, hdb.labels_)
+            params[i]['calinski_harabasz'] = calinski_harabasz_score(X, hdb.labels_)
         if davies:
             params[i]['davies_bouldin'] = davies_bouldin_score(X, hdb.labels_)
         results.append(params[i])
-        
+
     results = pd.DataFrame(results).round(3)
     results.sort_values(by=['rel_validity'], ascending=False, inplace=True)
-    
+
     return results
 
 
@@ -145,11 +145,11 @@ def plot_clusters(X, labels, ax, resolution='auto'):
             ax.plot(*resample_2d(xy, resolution), m, markerfacecolor=col,
                     markeredgewidth=0.0, markersize=ms, alpha=alpha, zorder=zorder)
         else:
-            ax.plot(*xy.T, m, markerfacecolor=col, markeredgewidth=0.0, 
+            ax.plot(*xy.T, m, markerfacecolor=col, markeredgewidth=0.0,
                     markersize=ms, alpha=alpha, zorder=zorder)
-        
+
     ax.set(xlabel='X [nm]', ylabel='Y [nm]')
- 
+
 
 def resample_2d(X, resolution):
     """Resample input data for efficient plotting.
@@ -172,18 +172,18 @@ def resample_2d(X, resolution):
     """
     x, y = X[:,0], X[:,1]
     nbins = np.ptp(X, axis=0) / resolution
-    
-    hh, locx, locy = np.histogram2d(x, y, bins=np.ceil(nbins))
+
+    hh, locx, locy = np.histogram2d(x, y, bins=np.ceil(nbins).astype('int'))
     xwidth, ywidth = np.diff(locx).mean(), np.diff(locy).mean()
     mask = hh != 0
-    
+
     locx = locx[:-1] + xwidth
     locy = locy[:-1] + ywidth
     yy, xx = np.meshgrid(locy, locx)
     np.random.seed(0)
     yy += np.random.uniform(-xwidth/2, xwidth/2, size=hh.shape)
     xx += np.random.uniform(-ywidth/2, ywidth/2, size=hh.shape)
-    
+
     return xx[mask], yy[mask]
 
 
@@ -213,7 +213,7 @@ def cluster_stats(hdb, X, n, p=0.0):
     clust = hdb.labels_ == n
     mask = clust & (hdb.probabilities_ > p)
     xy = X[mask]
-    
+
     stats = {}
     stats['total'] = np.sum(clust)
     stats['threshold'] = np.sum(mask)/np.sum(clust)*100
@@ -227,7 +227,7 @@ def cluster_stats(hdb, X, n, p=0.0):
     Radius of gyration (nm) -- {stats['gy_radius']:.2f}
     Density (per {unit}^2) -- {stats['density']:.2f}
     """)
-    
+
     return stats, cluster_info, perimeter
 
 
@@ -237,7 +237,7 @@ def gy_radius(X):
     """
     cm = np.mean(X, axis=0)
     gy_radius = np.sqrt(np.mean(norm(X-cm, axis=1)**2))
-    
+
     return gy_radius
 
 
@@ -253,7 +253,7 @@ def cluster_density(X):
     unit = ("micron" if density < 1e5 else "nm")
     if density >= 1e5:
         density /= 1e6
-    
+
     return density, vertices, unit
 
 
@@ -340,16 +340,16 @@ def make_training_dataset(size=1000, noise=0.03, std=0.1, state=8):
     XY : array_like
         2D coordinate array of length 3.25x size.
     """
-    noisy_circles = datasets.make_circles(n_samples=size, random_state=state, 
+    noisy_circles = datasets.make_circles(n_samples=size, random_state=state,
                                           factor=.3, noise=noise)
-    noisy_moons = datasets.make_moons(n_samples=size, random_state=state, 
+    noisy_moons = datasets.make_moons(n_samples=size, random_state=state,
                                       noise=noise)
-    blobs = datasets.make_blobs(n_samples=size, random_state=state, 
+    blobs = datasets.make_blobs(n_samples=size, random_state=state,
                                 centers=15, cluster_std=std)
     np.random.seed(state)
     bkgnd = np.dstack((np.random.uniform(-12, 15, size=size//4),
                        np.random.uniform(-15, 12, size=size//4)))[0]
-    
+
     moons = noisy_moons[0] * 4
     moons[:,0] += 5
     moons[:,1] -= 10
@@ -359,8 +359,8 @@ def make_training_dataset(size=1000, noise=0.03, std=0.1, state=8):
     circles[:,1] += 3
 
     XY = np.vstack((circles, moons, blobs[0], bkgnd)) * 1000
-    
-    return XY    
+
+    return XY
 
 
 def view_cluster(hdb, X, n, p=0.0, axes=None):
@@ -394,18 +394,20 @@ def view_cluster(hdb, X, n, p=0.0, axes=None):
         stats, cluster_info, perimeter = cluster_stats(hdb, X, n, p)
 
         try:
-            sns.distplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20))
+            sns.histplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20), kde=True)
         except:
-            sns.distplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20), kde=False)
+            sns.histplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20), kde=False)
 
         axes[0].set(xlim=(0,1), xlabel='Probability', ylabel='Frequency')
         axes[0].text(0.05, 0.95, cluster_info, transform=axes[0].transAxes,
                      horizontalalignment='left', verticalalignment='top',)
 
-        sns.scatterplot(*X[clust][prob<=p].T, alpha=0.5, color='r', ax=axes[1], 
-                        label=f'$p\\leq{p}$')
-        sns.scatterplot(*X[clust][prob>p].T, alpha=0.5, color='b', ax=axes[1], 
-                        label=f'$p>{p}$')
+        x, y = X[clust][prob<=p].T
+        sns.scatterplot(x=x, y=y, alpha=0.5, color='r', ax=axes[1], label=f'$p\\leq{p}$')
+
+        x, y = X[clust][prob>p].T
+        sns.scatterplot(x=x, y=y, alpha=0.5, color='b', ax=axes[1], label=f'$p>{p}$')
+
         axes[1].plot(*perimeter.T, 'k:')
         axes[1].set(xlabel='X [nm]', ylabel='Y [nm]')
 
@@ -425,6 +427,6 @@ def view_silhouette(hdb, X, ax):
     visualizer = SilhouetteVisualizer(hdb, ax=ax)
 
     visualizer.draw(hdb.labels_)
-    ax.text(0.05, 0.95, f'Score: {sil_samples.mean():.3f}', transform=ax.transAxes, 
+    ax.text(0.05, 0.95, f'Score: {sil_samples.mean():.3f}', transform=ax.transAxes,
             horizontalalignment='left', verticalalignment='top',)
     ax.set(ylabel='Cluster label', xlabel='Silhouette coefficient', yticks=[])

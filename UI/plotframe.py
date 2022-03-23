@@ -1,25 +1,24 @@
 """
 Author: Philip Ciunkiewicz
 """
-from matplotlib.backends.backend_tkagg import (
-    FigureCanvasTkAgg, NavigationToolbar2Tk)
-from tkinter import *
-from tkinter.ttk import *
+import tkinter as tk
+from tkinter import ttk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 
-class plotFrame(Frame):
-    """Frame for the plot to be animated within, 
+class plotFrame(ttk.Frame):
+    """Frame for the plot to be animated within,
     including TKinter drawing canvas and matplotlib toolbar.
     """
     def __init__(self, parent, fig):
-        Frame.__init__(self, parent)
+        super().__init__(parent)
 
         self.canvas = FigureCanvasTkAgg(fig, self)
         self.canvas.draw()
-        self.canvas.get_tk_widget().pack(side=LEFT, fill=BOTH, expand=True)
+        self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         toolbar = NavigationToolbar2Tk(self.canvas, self)
         toolbar.config(background="#f5f6f7")
         toolbar._message_label.config(background="#f5f6f7")
         toolbar.update()
-        self.canvas._tkcanvas.pack(side=TOP, fill=BOTH, expand=True)
+        self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
