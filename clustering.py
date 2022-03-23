@@ -266,7 +266,7 @@ def _custom_ravel(a, b):
         ab.append(x)
         try:
             ab.append(b[i])
-        except:
+        except IndexError:
             pass
     return ab
 
@@ -293,7 +293,7 @@ def count_multi_clusters(hdb):
 
                 if normed_peaks[normed_peaks < -0.25].size > 0:
                     count += 1
-        except:
+        except Exception:
             pass
 
     return count
@@ -395,7 +395,7 @@ def view_cluster(hdb, X, n, p=0.0, axes=None):
 
         try:
             sns.histplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20), kde=True)
-        except:
+        except Exception:
             sns.histplot(prob, ax=axes[0], bins=np.linspace(0, 1, 20), kde=False)
 
         axes[0].set(xlim=(0,1), xlabel='Probability', ylabel='Frequency')

@@ -111,7 +111,7 @@ class mainGUI(ttk.Frame):
             self.df = pd.read_csv(path)
             try:
                 self.XY = self.df[['x [nm]', 'y [nm]']]
-            except:
+            except KeyError:
                 success = self.convert_columns()
                 if success:
                     self.XY = self.df[['x [nm]', 'y [nm]']]
@@ -152,7 +152,7 @@ class mainGUI(ttk.Frame):
 
             try:
                 self.df.rename(index=str, columns={self.df.columns[indx]: name}, inplace=True)
-            except:
+            except IndexError:
                 messagebox.showerror('Load Data', f'Unable to find column {item}.')
                 return False
 
@@ -203,7 +203,7 @@ class mainGUI(ttk.Frame):
                 plot_clusters(self.XY, -np.ones(self.XY.shape[0]), ax=axes[2])
                 self.ROI()
 
-        except:
+        except AttributeError:
             messagebox.showinfo('Reset ROI', 'Please load data first.')
 
 
@@ -217,9 +217,7 @@ class mainGUI(ttk.Frame):
         set by GUI sliders and checkbuttons. Computes
         clustering results and provides visualization.
         """
-        try:
-            _ = self.XY
-        except:
+        if not hasattr(self, 'XY'):
             messagebox.showinfo('Run HDBSCAN', 'Please load data first.')
             return
 
@@ -244,9 +242,7 @@ class mainGUI(ttk.Frame):
 
 
     def validate(self):
-        try:
-            _ = self.hdb.labels_
-        except:
+        if not hasattr(self, 'hdb'):
             messagebox.showinfo('Validate', 'Please run HDBSCAN first.')
             return
 
@@ -271,9 +267,7 @@ class mainGUI(ttk.Frame):
         """Perform a random hyper parameter search
         across the parameter space defined in the GUI.
         """
-        try:
-            _ = self.XY
-        except:
+        if not hasattr(self, 'XY'):
             messagebox.showinfo('Parameter Search', 'Please load data first.')
             return
 
@@ -312,7 +306,7 @@ class mainGUI(ttk.Frame):
                              p=self.probability.value/100, axes=axes)
                 self.draw_region()
                 self.draw_probability_marker()
-            except:
+            except Exception:
                 pass
 
 
@@ -327,7 +321,7 @@ class mainGUI(ttk.Frame):
 
         try:
             self.region.remove()
-        except:
+        except Exception:
             pass
 
         self.region = Rectangle((xmin, ymin), xspan, yspan,
@@ -350,7 +344,7 @@ class mainGUI(ttk.Frame):
         """
         try:
             self.results_window.destroy()
-        except:
+        except Exception:
             pass
 
         self.results_window = tk.Toplevel(root, background=themebg)
@@ -379,7 +373,7 @@ class mainGUI(ttk.Frame):
         """
         try:
             self.silhouette_window.destroy()
-        except:
+        except Exception:
             pass
 
         self.silhouette_window = tk.Toplevel(root, background=themebg)
