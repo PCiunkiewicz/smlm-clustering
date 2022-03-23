@@ -22,7 +22,7 @@ from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bo
 from tkinter import ttk, filedialog, messagebox, simpledialog
 from ttkthemes import ThemedTk
 
-import UI
+import interface as UI
 from clustering.plot import plot_clusters, view_cluster, view_silhouette
 from clustering.search import random_search
 from clustering.stats import full_cluster_info
