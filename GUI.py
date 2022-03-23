@@ -452,7 +452,7 @@ def clearterminal():
     """Clear the terminal window if using
     command line to launch the program.
     """
-    if sys.platform.lower() == 'linux':
+    if sys.platform.lower() in ['linux', 'darwin']:
         os.system('clear')
     if sys.platform.lower() == 'win32':
         os.system('cls')
