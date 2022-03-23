@@ -3,10 +3,10 @@ Author: Philip Ciunkiewicz
 """
 import tkinter as tk
 from tkinter import ttk
-from .sections import hdbscanTools, exploreClusters, parameterSearch, ROITools, advancedTools
+from .sections import HDBScanTools, ExploreClusters, ParameterSearch, ROITools, AdvancedTools
 
 
-class controlsFrame(ttk.Frame):
+class ControlsFrame(ttk.Frame):
     """Main controls frame for clustering GUI.
     """
     def __init__(self, parent, mainUI):
@@ -17,21 +17,22 @@ class controlsFrame(ttk.Frame):
 
         container = ttk.Frame(self)
         ttk.Frame(container).pack()
-        self.hdbscanTools = hdbscanTools(container, mainUI)
-        mainUI.make_header(self, "HDBSCAN Tools", self.hdbscanTools, state=True)
+        self.hdbscanTools = HDBScanTools(container, mainUI)
+        mainUI.make_header(self, "HDBSCAN")
+        self.hdbscanTools.pack(fill=tk.X)
         container.pack(fill=tk.X)
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(1,5))
 
         container = ttk.Frame(self)
         ttk.Frame(container).pack()
-        self.exploreClusters = exploreClusters(container, mainUI)
+        self.exploreClusters = ExploreClusters(container, mainUI)
         mainUI.make_header(self, "Explore Clusters", self.exploreClusters)
         container.pack(fill=tk.X)
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(1,5))
 
         container = ttk.Frame(self)
         ttk.Frame(container).pack()
-        self.parameterSearch =  parameterSearch(container, mainUI)
+        self.parameterSearch =  ParameterSearch(container, mainUI)
         mainUI.make_header(self, "Parameter Search", self.parameterSearch)
         container.pack(fill=tk.X)
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(1,5))
@@ -39,13 +40,13 @@ class controlsFrame(ttk.Frame):
         container = ttk.Frame(self)
         ttk.Frame(container).pack()
         self.ROITools = ROITools(container, mainUI)
-        mainUI.make_header(self, "ROI Tools", self.ROITools)
+        mainUI.make_header(self, "ROI", self.ROITools)
         container.pack(fill=tk.X)
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(1,5))
 
         container = ttk.Frame(self)
         ttk.Frame(container).pack()
-        self.advancedTools = advancedTools(container, mainUI)
-        mainUI.make_header(self, "Advanced Tools", self.advancedTools)
+        self.advancedTools = AdvancedTools(container, mainUI)
+        mainUI.make_header(self, "Advanced", self.advancedTools)
         container.pack(fill=tk.X)
         ttk.Separator(self, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=(1,5))

@@ -1,34 +1,31 @@
 """
 Author: Philip Ciunkiewicz
 """
-
-
-###############################################################################
-################################### Imports ###################################
-###############################################################################
-
-
-import matplotlib
-import matplotlib.animation as animation
-from matplotlib.figure import Figure
-from matplotlib.patches import Rectangle
-
 import os
 import sys
+import inspect
 import warnings
+import multiprocessing
+from time import time
+
+import hdbscan
+import matplotlib
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import multiprocessing
-from time import time
-from scipy.stats import randint
-
 import tkinter as tk
+import matplotlib.animation as animation
+from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
+from scipy.stats import randint
+from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
 from tkinter import ttk, filedialog, messagebox, simpledialog
 from ttkthemes import ThemedTk
 
 import UI
-from clustering import *
+from clustering.plot import plot_clusters, view_cluster, view_silhouette
+from clustering.search import random_search
+from clustering.stats import full_cluster_info
 
 
 ###############################################################################
@@ -58,10 +55,10 @@ class mainGUI(ttk.Frame):
         super().__init__(parent)
         self.init_vars()
 
-        self.plot = UI.plotFrame(root, f)
+        self.plot = UI.PlotFrame(root, f)
         self.plot.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self.controls = UI.controlsFrame(root, self)
+        self.controls = UI.ControlsFrame(root, self)
         self.controls.pack(side=tk.RIGHT, fill=tk.BOTH, expand=False, padx=5, anchor=tk.W)
 
         self.ani = animation.FuncAnimation(f, self.animate, interval=100)
@@ -152,7 +149,7 @@ class mainGUI(ttk.Frame):
 
             try:
                 self.df.rename(index=str, columns={self.df.columns[indx]: name}, inplace=True)
-            except IndexError:
+            except (IndexError, TypeError):
                 messagebox.showerror('Load Data', f'Unable to find column {item}.')
                 return False
 
@@ -222,13 +219,14 @@ class mainGUI(ttk.Frame):
             return
 
         start = time()
-        self.hdb = hdbscan.HDBSCAN(core_dist_n_jobs=multiprocessing.cpu_count() - 1,
-                                   gen_min_span_tree=True,
-                                   min_cluster_size=self.min_cluster_size.value,
-                                   min_samples=self.min_samples.value,
-                                   allow_single_cluster=self.allowsingle.get(),
-                                   alpha=self.alpha.scale.get(),
-                                   cluster_selection_method=self.clust_method.get())
+        self.hdb = hdbscan.HDBSCAN(
+            core_dist_n_jobs=multiprocessing.cpu_count() - 1,
+            gen_min_span_tree=True,
+            min_cluster_size=self.min_cluster_size.value,
+            min_samples=self.min_samples.value,
+            allow_single_cluster=self.allowsingle.get(),
+            alpha=self.alpha.scale.get(),
+            cluster_selection_method=self.clust_method.get())
         self.hdb.fit(self.XY)
 
         axes[2].clear()
@@ -237,8 +235,7 @@ class mainGUI(ttk.Frame):
         plot_clusters(self.XY, self.hdb.labels_, ax=axes[2])
         self.cluster_info.config(text=full_cluster_info(self.hdb))
         if not self.hidenotice.get():
-            messagebox.showinfo(f'HDBSCAN Results ({time() - start:.1f} seconds)',
-                                full_cluster_info(self.hdb))
+            messagebox.showinfo(f'HDBSCAN Results ({time() - start:.1f} seconds)', full_cluster_info(self.hdb))
 
 
     def validate(self):
@@ -273,18 +270,20 @@ class mainGUI(ttk.Frame):
 
         n = simpledialog.askinteger('Parameter Search', 'Enter number of searches:')
         if n:
-            param_dist = {"min_cluster_size": randint(self.clustermin.get(),
-                                                      self.clustermax.get()),
-                          "min_samples": randint(self.samplemin.get(),
-                                                 self.samplemax.get())}
+            param_dist = {"min_cluster_size": randint(self.clustermin.get(), self.clustermax.get()),
+                          "min_samples": randint(self.samplemin.get(), self.samplemax.get())}
 
-            self.results = random_search_custom_hdb(param_dist, self.XY, n=n,
-                                                    allowsingle=self.allowsingle.get(),
-                                                    alpha=self.alpha.scale.get(),
-                                                    silhouette=self.silhouette.get(),
-                                                    calinski=self.calinski.get(),
-                                                    davies=self.davies.get(),
-                                                    method=self.clust_method.get())
+            self.results = random_search(
+                param_dist,
+                X=self.XY,
+                n=n,
+                allowsingle=self.allowsingle.get(),
+                alpha=self.alpha.scale.get(),
+                silhouette=self.silhouette.get(),
+                calinski=self.calinski.get(),
+                davies=self.davies.get(),
+                method=self.clust_method.get())
+
             timestamp = pd.Timestamp.now().strftime('%Y-%m-%dT%X')
             self.results.to_csv(f'param-search-results/{self.filename}-{timestamp}.csv', index=False)
             self.plot_param_search()
@@ -352,7 +351,7 @@ class mainGUI(ttk.Frame):
         self.param_ax = self.param_fig.add_subplot(111)
         self.param_fig.subplots_adjust(right=1.0)
 
-        self.results_plot = UI.plotFrame(self.results_window, self.param_fig)
+        self.results_plot = UI.PlotFrame(self.results_window, self.param_fig)
         self.results_plot.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         heatmap = self.results.pivot('min_samples', 'min_cluster_size', 'rel_validity')
         sns.heatmap(heatmap, ax=self.param_ax, cmap='RdYlGn')
@@ -379,7 +378,7 @@ class mainGUI(ttk.Frame):
         self.silhouette_window = tk.Toplevel(root, background=themebg)
         fig = Figure(dpi=80, facecolor=themebg)
         ax = fig.add_subplot(111)
-        UI.plotFrame(self.silhouette_window, fig).pack(fill=tk.BOTH, expand=True)
+        UI.PlotFrame(self.silhouette_window, fig).pack(fill=tk.BOTH, expand=True)
 
         view_silhouette(self.hdb, self.XY, ax)
 
@@ -417,7 +416,7 @@ class mainGUI(ttk.Frame):
         results table from results DataFrame.
         """
         subframe = ttk.Frame(self.results_window)
-        table = UI.displayTable(self.results_window, self.results)
+        table = UI.DisplayTable(self.results_window, self.results)
         subframe.pack(side=tk.LEFT, padx=5)
 
         self.make_header(subframe, "Parameter Search Results")
@@ -437,7 +436,7 @@ class mainGUI(ttk.Frame):
         # Separator(frame, orient=HORIZONTAL).pack(fill=X,pady=(1,5))
 
         if target is not None:
-            UI.frameCollapser(header, target, state)
+            UI.FrameCollapser(header, target, state)
 
 
     def make_select(self, frame, text, var):
@@ -477,8 +476,9 @@ if __name__ == "__main__":
 
     clearterminal()
     root = ThemedTk(theme=theme)
-    root.wm_title("HDBSCAN Clustering Utility v0.4.0")
+    root.wm_title("HDBSCAN Clustering Utility v0.5.0")
     root.configure(background=themebg)
+    root.geometry("1200x1000+0+0")
 
     app = mainGUI(root).pack(side="top", fill="both", expand=True)
     root.mainloop()

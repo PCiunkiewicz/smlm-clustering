@@ -5,13 +5,13 @@ import tkinter as tk
 from tkinter import ttk
 
 
-class frameCollapser(ttk.Checkbutton):
+class FrameCollapser(ttk.Checkbutton):
 	"""Checkbutton for collapsing and
 	expanding frames.
 	"""
 	def __init__(self, parent, target, state):
 		var = tk.BooleanVar()
-		super().__init__(parent, command=self.collapse, variable=var)
+		super().__init__(parent, command=self.collapse, variable=var, text='(expand)')
 		self.target = target
 		if state:
 			self.collapse()

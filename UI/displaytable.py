@@ -6,15 +6,14 @@ from tkinter import ttk
 from ttkwidgets import Table
 
 
-class displayTable(ttk.Frame):
+class DisplayTable(ttk.Frame):
     """Frame for displaying a Pandas DataFrame as
     an interactive table with ttkwidgets.
     """
     def __init__(self, parent, data):
         super().__init__(parent)
         columns = data.columns.values
-        table = Table(self, columns=columns, drag_cols=True,
-                      drag_rows=False, height=20)
+        table = Table(self, columns=columns, drag_cols=False, drag_rows=False, height=20)
 
         for indx, col in enumerate(columns):
             table.heading(indx, text=col)

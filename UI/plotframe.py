@@ -6,7 +6,7 @@ from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 
-class plotFrame(ttk.Frame):
+class PlotFrame(ttk.Frame):
     """Frame for the plot to be animated within,
     including TKinter drawing canvas and matplotlib toolbar.
     """

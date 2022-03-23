@@ -6,7 +6,7 @@ from tkinter import ttk
 import ttkwidgets as ttkw
 
 
-class hdbscanTools(ttk.Frame):
+class HDBScanTools(ttk.Frame):
     def __init__(self, parent, mainUI):
         super().__init__(parent)
 
@@ -32,7 +32,7 @@ class hdbscanTools(ttk.Frame):
         minclustersize = ttk.Frame(self)
         ttk.Label(minclustersize, text="Minimum Cluster Size").pack(side=tk.TOP, anchor=tk.W)
         mainUI.min_cluster_size = ttkw.ScaleEntry(minclustersize, from_=2, to=100,
-                                 scalewidth=200,compound=tk.LEFT)
+                                 scalewidth=250,compound=tk.LEFT)
         mainUI.min_cluster_size.pack(side=tk.BOTTOM)
         mainUI.min_cluster_size._variable.set(50)
         mainUI.min_cluster_size._on_scale(None)
@@ -41,7 +41,7 @@ class hdbscanTools(ttk.Frame):
         minsamples = ttk.Frame(self)
         ttk.Label(minsamples, text="Minimum Samples").pack(side=tk.TOP, anchor=tk.W)
         mainUI.min_samples = ttkw.ScaleEntry(minsamples, from_=1, to=100,
-                                 scalewidth=200, compound=tk.LEFT)
+                                 scalewidth=250, compound=tk.LEFT)
         mainUI.min_samples.pack(side=tk.BOTTOM)
         mainUI.min_samples._variable.set(5)
         mainUI.min_samples._on_scale(None)
@@ -53,7 +53,7 @@ class hdbscanTools(ttk.Frame):
         mainUI.cluster_info.pack(fill=tk.X)
 
 
-class exploreClusters(ttk.Frame):
+class ExploreClusters(ttk.Frame):
     def __init__(self, parent, mainUI):
         super().__init__(parent)
 
@@ -61,14 +61,14 @@ class exploreClusters(ttk.Frame):
         cluster_n = ttk.Frame(options)
         ttk.Label(cluster_n, text="Cluster Index").pack(side=tk.TOP, anchor=tk.W)
         mainUI.cluster = ttkw.ScaleEntry(cluster_n, from_=0, to=1,
-                                  scalewidth=200,compound=tk.LEFT)
+                                  scalewidth=250,compound=tk.LEFT)
         mainUI.cluster.pack(side=tk.BOTTOM)
         cluster_n.pack(anchor=tk.W, side=tk.TOP,fill=tk.X)
 
         prob = ttk.Frame(options)
         ttk.Label(prob, text="Probability Threshold (%)").pack(side=tk.TOP, anchor=tk.W)
         mainUI.probability = ttkw.ScaleEntry(prob, from_=0, to=99,
-                                 scalewidth=200,compound=tk.LEFT)
+                                 scalewidth=250,compound=tk.LEFT)
         mainUI.probability.pack(side=tk.BOTTOM, fill=tk.X)
         prob.pack(anchor=tk.W, side=tk.TOP, fill=tk.X)
         options.pack(anchor=tk.W, side=tk.TOP, fill=tk.X)
@@ -80,7 +80,7 @@ class exploreClusters(ttk.Frame):
         mainUI.stored_values = dict(mainUI.current_values)
 
 
-class parameterSearch(ttk.Frame):
+class ParameterSearch(ttk.Frame):
     def __init__(self, parent, mainUI):
         super().__init__(parent)
 
@@ -131,7 +131,7 @@ class ROITools(ttk.Frame):
         mainUI.ROI()
 
 
-class advancedTools(ttk.Frame):
+class AdvancedTools(ttk.Frame):
     def __init__(self, parent, mainUI):
         super().__init__(parent)
 
