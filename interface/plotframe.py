@@ -5,6 +5,8 @@ import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
+from .utils import THEMEBG
+
 
 class PlotFrame(ttk.Frame):
     """Frame for the plot to be animated within,
@@ -18,7 +20,7 @@ class PlotFrame(ttk.Frame):
         self.canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         toolbar = NavigationToolbar2Tk(self.canvas, self)
-        toolbar.config(background="#f5f6f7")
-        toolbar._message_label.config(background="#f5f6f7")
+        toolbar.config(background=THEMEBG)
+        toolbar._message_label.config(background=THEMEBG)
         toolbar.update()
         self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
