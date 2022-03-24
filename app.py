@@ -3,7 +3,6 @@ Author: Philip Ciunkiewicz
 """
 import os
 import inspect
-import warnings
 import multiprocessing
 import tkinter as tk
 from time import time
@@ -29,7 +28,6 @@ from clustering.stats import full_cluster_info
 
 
 matplotlib.use('TkAgg')
-warnings.filterwarnings('ignore', category=DeprecationWarning)
 np.seterr(divide='ignore')
 sns.set()
 
@@ -229,7 +227,7 @@ class MainGUI(ttk.Frame):
             self.results = random_search(
                 param_dist,
                 X=self.XY,
-                n=n_searches,
+                n_searches=n_searches,
                 allowsingle=self.allowsingle.get(),
                 alpha=self.alpha.scale.get(),
                 silhouette=self.silhouette.get(),

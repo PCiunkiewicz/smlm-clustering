@@ -12,7 +12,7 @@ from .utils import custom_round
 
 
 def random_search(
-        param_dist, X, n=1, allowsingle=False, alpha=1.0,
+        param_dist, X, n_searches=1, allowsingle=False, alpha=1.0,
         silhouette=False, calinski=False, davies=False, method='eom'):
     """Custom random parameter search function
     specifically for the hdbscan.HDBSCAN model.
@@ -24,8 +24,8 @@ def random_search(
         See SKLearn GridSearchCV function.
     X : array_like
         Input data for clustering.
-    n : int
-        Number of random searches, dafault 1.
+    n_searches : int
+        Number of random searches, default 1.
     allowsingle : bool
         Allow single cluster in HDBSCAN, default False.
     silhouette : bool
@@ -40,7 +40,7 @@ def random_search(
     results : pd.DataFrame
         Parameter search results table.
     """
-    df = pd.DataFrame(ParameterSampler(param_dist, n))
+    df = pd.DataFrame(ParameterSampler(param_dist, n_searches))
     for i in [0,1]:
         rounding = np.ceil((df.iloc[:,i].max() - df.iloc[:,i].min()) / 100)
         df.iloc[:,i] = df.iloc[:,i].apply(lambda x: custom_round(x, base=rounding))
@@ -50,7 +50,7 @@ def random_search(
     params = [dict(x) for x in unique]
     results = []
 
-    for i in trange(len(params)):
+    for i in trange(len(params), desc='Parameter Search'):
         hdb = hdbscan.HDBSCAN(
             core_dist_n_jobs=6,
             gen_min_span_tree=True,
