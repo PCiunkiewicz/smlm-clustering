@@ -34,4 +34,4 @@ python app.py
 
 Included is a directory of training data (`training-data`) to perform cluster analysis on prior to exploring your own data.
 
-For further information, please consult the accompanying standard operating protocol.
+For further information, please consult the accompanying [standard operating protocol](Standard-Operating-Protocol.pdf).
